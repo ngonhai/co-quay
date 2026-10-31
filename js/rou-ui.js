@@ -161,9 +161,11 @@
     renderInfo(g);
   }
   function renderInfo(g) {
-    const it = g.table.find(i => i.id === U.sel), box = $('item-info');
+    const hv = U.hov != null && U.hov !== U.sel ? g.table.find(i => i.id === U.hov) : null;
+    const it = hv || g.table.find(i => i.id === U.sel), box = $('item-info');
     if (!it) { box.innerHTML = '<span class="muted">' + t('pick') + '</span>'; return; }
-    const [name, desc] = t('items')[it.k], can = Rou.canUse(g, U.me, it) && !U.busy && !U.pending;
+    const [name, desc] = t('items')[it.k], can = !hv && Rou.canUse(g, U.me, it) && !U.busy && !U.pending;
+    if (hv) { box.innerHTML = '<div class="ii-ic">' + Art.icon(it.k) + '</div><div class="ii-tx"><b>' + esc(name) + '</b><span>' + esc(desc) + '</span></div>'; return; }
     box.innerHTML = '<div class="ii-ic">' + Art.icon(it.k) + '</div><div class="ii-tx"><b>' + esc(name) + '</b><span>' + esc(desc) + '</span></div><button type="button" class="btn btn-alt" id="btn-use"' + (can ? '' : ' disabled') + '>' + t('useItem') + '</button>';
   }
   function renderControls(g) {
@@ -434,7 +436,9 @@
     try { $('input-name').value = localStorage.getItem('rou_name') || ''; } catch (e) {}
     try { U.d3 = localStorage.getItem('rou_3d') !== '0' && !!window.R3D && R3D.init($('r3d-wrap')); } catch (e) { U.d3 = false; }
     U.can3d = !!window.R3D && (U.d3 || R3D.init($('r3d-wrap')));
-    if (U.d3) R3D.onPick(onPick3);
+    if (U.d3) { R3D.onPick(onPick3); R3D.onHover(id => { U.hov = id; if (U.view) renderInfo(U.view); }); }
+    $('items').addEventListener('mouseover', e => { const it = e.target.closest && e.target.closest('.item'); const id = it ? +it.dataset.id : null; if (id !== U.hov) { U.hov = id; if (U.view) renderInfo(U.view); } });
+    $('items').addEventListener('mouseleave', () => { if (U.hov != null) { U.hov = null; if (U.view) renderInfo(U.view); } });
     Fx.init(); Net.onChange(onRoom); wire(); Snd.probe(); renderLobbyTabs();
     const hash = (location.hash || '').replace('#', '').toUpperCase();
     if (hash.length === 5) { U.tab = 'join'; $('input-room-code').value = hash; renderLobbyTabs(); }

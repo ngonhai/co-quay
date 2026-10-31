@@ -32,7 +32,7 @@ const R3D = (function () {
   const players = [null, null], items = new Map(), cine = { dolly: 0, fov: 0, shake: 0, pitch: 0, roll: 0 };
   const view = { mode: 'pov', seat: 0, parX: 0, parY: 0 }, camPos = V(0, 1.3, 1.2), camLook = V(0, .8, 0);
   let gunObj = null, tableGroup, lampSpot, flashLight, shieldMeshes = [null, null], selRing, hoverRing, selId = null, hoverId = null, aimMode = false, drumSig = '', lampBase = 17;
-  const cb = { pick: () => {} }; let names = ['A', 'B'], cols = ['#ff6a4d', '#5eead4'], isBot = [false, true];
+  const cb = { pick: () => {}, hover: () => {} }; let names = ['A', 'B'], cols = ['#ff6a4d', '#5eead4'], isBot = [false, true];
 
   // ---------------------------------------------------------------- builders ----
   const plank = () => {
@@ -358,7 +358,7 @@ const R3D = (function () {
     return { type: 'none' };
   }
   function setSelected(id) { selId = id; const r = items.get(id); selRing.visible = !!r; if (r) selRing.position.set(r.base.x, TY + .004, r.base.z); }
-  function onMove(ev) { const r = canvas.getBoundingClientRect(); view.parX = ((ev.clientX - r.left) / r.width - .5) * 2; view.parY = -((ev.clientY - r.top) / r.height - .5) * 2; const p = pickAt(ev); canvas.style.cursor = p.type === 'item' || p.type === 'gun' || (p.type === 'player' && aimMode) ? 'pointer' : 'default'; hoverId = p.type === 'item' && !(items.get(p.id) && items.get(p.id).attached) ? p.id : null; hoverRing.visible = false; }
+  function onMove(ev) { const r = canvas.getBoundingClientRect(); view.parX = ((ev.clientX - r.left) / r.width - .5) * 2; view.parY = -((ev.clientY - r.top) / r.height - .5) * 2; const p = pickAt(ev); canvas.style.cursor = p.type === 'item' || p.type === 'gun' || (p.type === 'player' && aimMode) ? 'pointer' : 'default'; const nh = p.type === 'item' && !(items.get(p.id) && items.get(p.id).attached) ? p.id : null; if (nh !== hoverId) { hoverId = nh; cb.hover(nh); } hoverRing.visible = false; }
   const setAimMode = on => { aimMode = !!on; if (gunObj && !gunObj.userData.held) { gunObj.position.y = TY + .05 + (on ? .05 : 0); } };
 
   // ---------------------------------------------------------------- frame loop ----
@@ -387,7 +387,7 @@ const R3D = (function () {
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = .9;
       scene = new THREE.Scene(); cam = new THREE.PerspectiveCamera(62, 1, .05, 30); buildRoom();
       gunObj = makeGun(); gunRest(); scene.add(gunObj); makeCounter(); makeGlow();
-      canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerdown', ev => { if (ev.button !== 0) return; cb.pick(pickAt(ev)); });
+      canvas.addEventListener('pointermove', onMove); canvas.addEventListener('pointerleave', () => { if (hoverId != null) { hoverId = null; cb.hover(null); } }); canvas.addEventListener('pointerdown', ev => { if (ev.button !== 0) return; cb.pick(pickAt(ev)); });
       addEventListener('resize', resize); resize();
       document.addEventListener('visibilitychange', () => { clearInterval(hidT); if (document.hidden && running) { let l = performance.now(); hidT = setInterval(() => { const n = performance.now(); stepTweens(Math.min(.1, (n - l) / 1000)); l = n; }, 50); } });
       ok = true;
@@ -404,7 +404,7 @@ const R3D = (function () {
   function stop() { running = false; cancelAnimationFrame(raf); clearInterval(hidT); }
   const api = {
     err: () => lastErr, init, setup, sync, live, start, stop, resize, setView, setSelected, setAimMode, gunAim, gunSuspense, gunFire, gunPut, useItem, spinDrum,
-    setExpr: (s, e) => { if (ok && players[s]) setFaceTex(players[s], e); }, onPick: f => { cb.pick = f; }, isOk: () => ok,
+    setExpr: (s, e) => { if (ok && players[s]) setFaceTex(players[s], e); }, onPick: f => { cb.pick = f; }, onHover: f => { cb.hover = f; }, isOk: () => ok,
     screenOf: what => { const w = what === 'gun' ? gunObj.position.clone() : what === 'opp' ? players[1].head.getWorldPosition(V(0, 0, 0)) : (items.get(what) ? items.get(what).group.position.clone().add(V(0, .03, 0)) : null); if (!w) return null; w.project(cam); const r = canvas.getBoundingClientRect(); return { x: r.left + (w.x + 1) / 2 * r.width, y: r.top + (1 - w.y) / 2 * r.height }; },
     itemIds: () => [...items.keys()],
     lookAt: (s, v) => { if (players[s]) players[s].look.copy(v || V(0, 0, 0)); }
