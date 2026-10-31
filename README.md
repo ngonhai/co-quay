@@ -16,7 +16,7 @@ Open `index.html` through any static server.
 | Điện thoại / Phone | privately see a random later chamber |
 | Ly bia / Beer | eject the firing-chamber shell (everyone sees it) |
 | Chanh đá / Lemon soda | +1 HP |
-| Chuông đóng cửa / Last-call bell | opponent loses their next turn |
+| Còng tay / Handcuffs | opponent loses their next turn |
 | Xoay ổ / Spin | reshuffle the remaining shells, everybody's peeks are forgotten |
 | Đồng xu / Coin | flip the firing-chamber shell; the public counter is **not** updated (a bluff tool) |
 | Ly whisky / Whisky | next shot deals 2 if live |
@@ -46,3 +46,9 @@ Open `index.html` through any static server.
   Click the revolver to arm it: click the opponent to shoot them, click the revolver again to shoot yourself (the two buttons still work). The shooter's hand takes the gun, aims, a few beats of suspense (dolly-in, flicker, letterbox bars), then fire / click, recoil, hit reaction, gun back on the table. The opponent plays the same animations with their own arms.
 - **Spectators**: anyone who joins a room code after the two seats are taken (or after the game started) stands beside the table: camera buttons *Beside table / <player> view* switch between a side view and each player's first-person view (including that player's private peeks). They can't act. Stored at `rooms/roulette_<CODE>/specs/<uid>`.
 - `3D/2D` header button switches back to the old 2D table (also used automatically when WebGL isn't available). Quality is capped (pixel ratio ≤ 1.5, one shadow-casting light).
+
+## v4
+- Shot reveal updates everything at once: hearts shatter and vanish, shield badge/tray, live/blank counter.
+- 3D: wide drooping hat brim + shadow across the face, shorter neck, wider shoulders, bigger arms/hands; faint pale-yellow hover glow on table items; blood sprays onto the table and fades; a 3D "N LIVE / N BLANK" sign next to the revolver (HUD counter hidden in 3D).
+- Handcuffs replace the bell: slid to the opponent's table edge and locked there until their turn is skipped.
+- Quieter BGM thump.

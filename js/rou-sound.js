@@ -18,7 +18,7 @@ const Snd = (function () {
     peek: [{ f: 1000, f2: 1500, d: .35, t: 'sine', v: .25 }, { f: 1500, f2: 2000, d: .35, t: 'sine', v: .15, at: .05 }],
     heal: [{ f: 520, d: .1, t: 'sine', v: .5 }, { f: 660, d: .1, t: 'sine', v: .5, at: .1 }, { f: 784, d: .2, t: 'sine', v: .5, at: .2 }],
     shield: [{ f: 300, f2: 500, d: .15, t: 'triangle', v: .5 }, { n: 1, d: .08, v: .4, lp: 3000, at: .12 }],
-    bell: [{ f: 1320, d: .9, t: 'sine', v: .4 }, { f: 1980, d: .6, t: 'sine', v: .2 }],
+    cuff: [{ f: 2400, d: .05, t: 'square', v: .3 }, { f: 1500, d: .12, t: 'square', v: .25 }, { f: 300, d: .3, t: 'triangle', v: .3 }],
     coin: [{ f: 2400, f2: 3000, d: .08, t: 'sine', v: .3 }, { f: 2600, d: .5, t: 'sine', v: .25, at: .08 }],
     glass: [{ f: 1800, d: .06, t: 'sine', v: .3 }, { n: 1, d: .05, v: .4, lp: 6000 }],
     turn: [{ f: 660, d: .1, t: 'triangle', v: .4 }, { f: 880, d: .16, t: 'triangle', v: .4, at: .1 }],
@@ -77,8 +77,8 @@ const Snd = (function () {
   function stepAt(c, s, t) {
     const T = B.tension, d = B.bus;
     const n = BASS[s]; if (n !== null) tone(c, 55 * Math.pow(2, n / 12), 'sawtooth', t, .55, .5, 220 + T * 260, d);
-    if (s === 0 || s === 16) tone(c, 60, 'sine', t, .5, .55, 200, d);                                   // slow low thump
-    if (T > .25 && (s === 0 || s === 3 || s === 16 || s === 19)) tone(c, 48, 'sine', t, .22, .35 + T * .3, 160, d);   // heartbeat lub-dub
+    if (s === 0 || s === 16) tone(c, 60, 'sine', t, .5, .3, 200, d);                                   // slow low thump
+    if (T > .25 && (s === 0 || s === 3 || s === 16 || s === 19)) tone(c, 48, 'sine', t, .22, .2 + T * .15, 160, d);   // heartbeat lub-dub
     if (s % 2 === 1 && T > .15) hit(c, t, .035, .03 + T * .1, 6500, d);                                  // hats
     if (T > .6 && s % 2 === 0) hit(c, t, .03, .05, 7500, d);
     if (s % 4 === 2) tone(c, 1500, 'square', t, .03, .022 + T * .03, 2600, d);                          // wall-clock tick

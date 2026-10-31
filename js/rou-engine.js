@@ -6,8 +6,8 @@
 // When the cylinder is empty it is reloaded (new live/blank mix, new items on the table). 0 HP loses the round; first to `target` rounds wins.
 const Rou = (function () {
   'use strict';
-  const ITEMS = ['loupe', 'phone', 'beer', 'lemon', 'bell', 'spin', 'coin', 'whisky', 'tray'];
-  const WEIGHT = { loupe: 5, phone: 3, beer: 4, lemon: 3, bell: 3, spin: 3, coin: 3, whisky: 4, tray: 3 };
+  const ITEMS = ['loupe', 'phone', 'beer', 'lemon', 'cuffs', 'spin', 'coin', 'whisky', 'tray'];
+  const WEIGHT = { loupe: 5, phone: 3, beer: 4, lemon: 3, cuffs: 3, spin: 3, coin: 3, whisky: 4, tray: 3 };
   const TABLE_MAX = 8;
   const DEFAULTS = { target: 2, perTurn: 2, bot: 'normal' };
   const BOT_LEVELS = ['easy', 'normal', 'hard'];
@@ -80,7 +80,7 @@ const Rou = (function () {
       case 'loupe': return !g.ch[0].s[p];
       case 'phone': case 'spin': return g.ch.length >= 2;
       case 'lemon': return g.hp[p] < g.maxHp;
-      case 'bell': return !g.skip[1 - p];
+      case 'cuffs': return !g.skip[1 - p];
       case 'whisky': return !g.dbl;
       case 'tray': return !g.shield[p];
       default: return true;
@@ -118,7 +118,7 @@ const Rou = (function () {
       case 'phone': { const i = 1 + ri(g, g.ch.length - 1); g.ch[i].s[p] = true; e.pos = i; e.peek = g.ch[i].k; break; }
       case 'beer': { const c = g.ch.shift(); g.spent.push(c.k); g.pub[c.k === 'L' ? 'l' : 'b'] = Math.max(0, g.pub[c.k === 'L' ? 'l' : 'b'] - 1); e.kind = c.k; break; }
       case 'lemon': g.hp[p] = Math.min(g.maxHp, g.hp[p] + 1); break;
-      case 'bell': g.skip[1 - p] = true; break;
+      case 'cuffs': g.skip[1 - p] = true; break;
       case 'spin': shuffle(g, g.ch); g.ch.forEach(c => c.s = [false, false]); break;
       case 'coin': { const c = g.ch[0], seen = c.s[p]; c.k = c.k === 'L' ? 'B' : 'L'; c.s = [false, false]; if (seen) { c.s[p] = true; e.peek = c.k; } break; }   // public counters are NOT updated: a bluff tool
       case 'whisky': g.dbl = true; break;
@@ -173,8 +173,8 @@ const Rou = (function () {
       if (known === 'L') {
         if (g.shield[op] && (it = has('beer'))) return use(it);          // don't waste a live shell on a tray
         if ((it = has('whisky'))) return use(it);
-        if ((it = has('bell'))) return use(it);                          // double tap
-      } else if (pl >= .6 && (it = has('bell')) && r > .5) return use(it);
+        if ((it = has('cuffs'))) return use(it);                          // double tap
+      } else if (pl >= .6 && (it = has('cuffs')) && r > .5) return use(it);
     }
     let at;
     if (known === 'L') at = 'opp'; else if (known === 'B') at = 'self';

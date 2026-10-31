@@ -193,3 +193,8 @@ body.spec .actions,body.spec .emote-btn,body.spec .item-info{ display:none !impo
 body.mode3d #screen-game{ pointer-events:none; } body.mode3d .game-header{ pointer-events:auto; }
 body.mode3d .banner{ position:fixed; left:0; right:0; bottom:132px; top:auto; padding:0; } body.mode3d .banner.live,body.mode3d .banner.blank,body.mode3d .banner.good{ bottom:auto; top:38%; padding:0; }
 body.mode3d .scene-wrap{ top:auto; } body.mode3d .counter{ top:56px; left:auto; right:10px; transform:none; } body.mode3d .side-panel{ top:92px; }
+
+/* v4: lost hearts shatter and vanish for good */
+.heart.brk{ animation:heartBrk .75s ease-out forwards; transform-origin:50% 60%; pointer-events:none; }
+@keyframes heartBrk{ 0%{transform:scale(1.25) rotate(0);filter:brightness(2.2);opacity:1} 25%{transform:scale(1.4) rotate(-14deg);opacity:1} 55%{transform:scale(1.1) translateY(8px) rotate(22deg);filter:grayscale(.4);opacity:.8;clip-path:polygon(0 0,100% 0,100% 55%,50% 70%,0 55%)} 100%{transform:scale(.4) translateY(26px) rotate(60deg);opacity:0;width:0;margin:0} }
+body.mode3d #counter{ display:none; }

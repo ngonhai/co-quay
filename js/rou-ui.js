@@ -126,10 +126,11 @@
   const heartSvg = on => '<svg class="heart' + (on ? '' : ' lost') + '" viewBox="0 0 64 64"><use href="#ic-heart"/></svg>';
   function playerHTML(g, i) {
     const you = i === U.me, bot = Net.mode() === 'local' && i === 1;
-    let hearts = ''; for (let h = 0; h < g.maxHp; h++) hearts += heartSvg(h < g.hp[i]);
+    let hearts = ''; for (let h = 0; h < g.hp[i]; h++) hearts += heartSvg(true);
+    if (U.shatter && U.shatter.seat === i) for (let h = 0; h < U.shatter.n; h++) hearts += '<svg class="heart brk" style="animation-delay:' + h * 90 + 'ms" viewBox="0 0 64 64"><use href="#ic-heart"/></svg>';
     let badges = '';
     if (g.shield[i]) badges += '<span class="badge" title="' + esc(t('items').tray[0]) + '">' + Art.icon('shield') + '</span>';
-    if (g.skip[i]) badges += '<span class="badge bad" title="' + esc(t('items').bell[0]) + '">' + Art.icon('skip') + '</span>';
+    if (g.skip[i]) badges += '<span class="badge bad" title="' + esc(t('items').cuffs[0]) + '">' + Art.icon('skip') + '</span>';
     if (g.dbl && g.turn === i && g.phase === 'play') badges += '<span class="badge hot" title="' + esc(t('items').whisky[0]) + '">' + Art.icon('dbl') + '<b>x2</b></span>';
     let pips = ''; for (let w = 0; w < g.opts.target; w++) pips += '<i class="pip' + (w < g.wins[i] ? ' on' : '') + '"></i>';
     const off = Net.mode() === 'online' && U.room && U.room.seats['s' + i] && U.room.seats['s' + i].connected === false;
@@ -233,8 +234,20 @@
   const kindTxt = k => k === 'L' ? t('live') : t('blank');
 
   async function animate(g, before) {
-    for (const e of g.ev) await playEv(e, g, before);
+    U.mid = null;
+    try { for (const e of g.ev) await playEv(e, g, before); } finally { U.mid = null; U.shatter = null; }
     setAim(0);
+  }
+  // At the moment of reveal: apply the shot to what is on screen right away (hearts, shield, live/blank counter).
+  function liveUpdate(e, base) {
+    const m = Object.assign({}, base, { hp: base.hp.slice(), shield: base.shield.slice(), pub: Object.assign({}, base.pub), dbl: false });
+    m.pub[e.k === 'L' ? 'l' : 'b'] = Math.max(0, m.pub[e.k === 'L' ? 'l' : 'b'] - 1);
+    U.shatter = null;
+    if (e.k === 'L') { if (e.blocked) m.shield[e.at] = false; else { m.hp[e.at] = Math.max(0, m.hp[e.at] - e.dmg); U.shatter = { seat: e.at, n: Math.min(e.dmg, base.hp[e.at]) }; } }
+    U.mid = m; const o = 1 - U.me;
+    $('opp').innerHTML = playerHTML(m, o); $('me').innerHTML = playerHTML(m, U.me); renderCounter(m);
+    if (U.d3) R3D.live(m, e);
+    return m;
   }
   async function playEv(e, g, before) {
     const me = U.me, who = i => esc(g.names[i]);
@@ -248,9 +261,9 @@
       case 'shot': {
         const toMe = e.at === me; setAim(toMe ? 180 : 0);
         say(e.by === e.at ? t('aimSelf', { n: who(e.by) }) : t('aimOpp', { n: who(e.by), m: who(e.at) }), 'aim'); Snd.play('aim'); setExpr(e.at, 'scared', 2300); await (U.d3 ? R3D.gunAim(e.by, e.at) : sleep(650));
-        const pl = before.pub.l + before.pub.b ? before.pub.l / (before.pub.l + before.pub.b) : .5, beats = pl > .5 ? 3 : 2;
+        before = U.mid || before; const pl = before.pub.l + before.pub.b ? before.pub.l / (before.pub.l + before.pub.b) : .5, beats = pl > .5 ? 3 : 2;
         for (let i = 0; i < beats; i++) { Snd.play('beat'); await (U.d3 ? R3D.gunSuspense(430 + (i ? 120 : 0)) : sleep(430 + (i ? 120 : 0))); }
-        const panel = $(toMe ? 'me' : 'opp'); if (U.d3) R3D.gunFire(e.by, e.at, e.k, e.blocked);
+        if (U.d3) R3D.gunFire(e.by, e.at, e.k, e.blocked); liveUpdate(e, before); const panel = $(toMe ? 'me' : 'opp');
         if (e.k === 'L') {
           muzzle(); flashScreen(e.blocked ? '#6cc4f5' : '#ff4d6d'); shake(); Snd.play('live'); Snd.duck(1600); say(t('live'), 'live'); const avEl = panel.querySelector('.p-av');
           if (e.blocked) { floatAt(panel, t('blockedT'), 'blue'); Snd.play('shield'); Fx.spark(avEl); } else { Fx.blood(avEl); setExpr(e.at, 'hurt', 1700); if (e.by !== e.at) setExpr(e.by, 'smug', 1700); if (Net.mode() === 'local') { if (e.at === 1 && Math.random() < .5) setTimeout(() => showEmote(1, 'angry'), 900); else if (e.at === 0 && e.by === 1 && Math.random() < .5) setTimeout(() => showEmote(1, 'laugh'), 900); } floatAt(panel, t('dmg', { n: e.dmg }), 'red'); setTimeout(() => Snd.play('hurt'), 120); panel.classList.add('hit'); setTimeout(() => panel.classList.remove('hit'), 600); }
@@ -260,14 +273,21 @@
         break;
       }
       case 'again': say(t('again'), 'good'); await sleep(750); break;
-      case 'skipped': say(t('skipped', { n: who(e.p) }), 'sys'); Snd.play('bell'); await sleep(950); break;
+      case 'skipped': say(t('skipped', { n: who(e.p) }), 'sys'); Snd.play('cuff'); await sleep(950); break;
       case 'item': await playItem(e, g); break;
       case 'roundEnd': Snd.play(e.w === me ? 'win' : 'lose'); say(t('roundWin', { n: who(e.w) }), e.w === me ? 'good' : 'live'); await sleep(1100); break;
     }
   }
+  function patchMid(e, g) {   // keep the live view consistent with items used earlier in the same turn
+    const b = U.mid || U.view; if (!b || !['tray', 'lemon', 'whisky', 'beer', 'cuffs'].includes(e.k)) return;
+    const m = Object.assign({}, b, { hp: b.hp.slice(), shield: b.shield.slice(), skip: b.skip.slice(), pub: Object.assign({}, b.pub) });
+    if (e.k === 'tray') m.shield[e.by] = true; else if (e.k === 'lemon') m.hp[e.by] = Math.min(g.maxHp, m.hp[e.by] + 1); else if (e.k === 'whisky') m.dbl = true; else if (e.k === 'cuffs') m.skip[1 - e.by] = true; else if (e.k === 'beer') m.pub[e.kind === 'L' ? 'l' : 'b'] = Math.max(0, m.pub[e.kind === 'L' ? 'l' : 'b'] - 1);
+    U.mid = m;
+  }
   async function playItem(e, g) {
+    patchMid(e, g);
     const me = U.me, name = t('items')[e.k][0], who = esc(g.names[e.by]);
-    const snd = { loupe: 'peek', phone: 'peek', beer: 'glass', lemon: 'heal', bell: 'bell', spin: 'spin', coin: 'coin', whisky: 'glass', tray: 'shield' }[e.k];
+    const snd = { loupe: 'peek', phone: 'peek', beer: 'glass', lemon: 'heal', cuffs: 'cuff', spin: 'spin', coin: 'coin', whisky: 'glass', tray: 'shield' }[e.k];
     Snd.play(snd); const p3 = U.d3 ? R3D.useItem(e.by, e.k, e.id) : null; if (e.k === 'lemon') Fx.heal(panelOf(e.by).querySelector('.p-hp')); if (e.k === 'tray') Fx.spark(panelOf(e.by).querySelector('.p-av'), '#6cc4f5'); popIcon(e.k, t('usedBy', { n: who, i: esc(name) })); let wait = 1000;
     if (e.k === 'loupe' && e.by === me) { setTimeout(() => say(t('peekYou', { k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1700; }
     else if (e.k === 'phone' && e.by === me) { setTimeout(() => say(t('peekPhone', { i: e.pos + 1, k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1900; }

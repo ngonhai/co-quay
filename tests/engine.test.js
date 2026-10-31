@@ -44,15 +44,15 @@ function mk(chs, items, o) {
   Rou.apply(g, 0, { t: 'fire', at: 'self' }); ok(g.turn === 0 && g.hp[0] === 3, 'blank on self keeps turn');
   Rou.apply(g, 0, { t: 'fire', at: 'self' }); ok(g.turn === 1 && g.hp[0] === 2, 'live on self hurts and passes');
 }
-{ // whisky doubles, tray blocks, bell skips
-  let g = mk(['L', 'L', 'B', 'B'], ['whisky', 'tray', 'bell']);
+{ // whisky doubles, tray blocks, cuffs skip
+  let g = mk(['L', 'L', 'B', 'B'], ['whisky', 'tray', 'cuffs']);
   ok(Rou.apply(g, 0, { t: 'item', id: 100 }), 'whisky'); Rou.apply(g, 0, { t: 'fire', at: 'opp' });
   ok(g.hp[1] === 1 && !g.dbl, 'double damage, flag cleared'); ok(g.turn === 1, 'turn passed');
   g = mk(['L', 'B'], ['tray']); g.turn = 1; g.table = [{ id: 1, k: 'tray' }];
   Rou.apply(g, 1, { t: 'item', id: 1 }); g.turn = 0; Rou.apply(g, 0, { t: 'fire', at: 'opp' });
   ok(g.hp[1] === 3 && !g.shield[1], 'tray absorbs one live shell');
-  g = mk(['B', 'B', 'L'], ['bell']); Rou.apply(g, 0, { t: 'item', id: 100 }); Rou.apply(g, 0, { t: 'fire', at: 'opp' });
-  ok(g.turn === 0 && !g.skip[1], 'bell: opponent loses their turn');
+  g = mk(['B', 'B', 'L'], ['cuffs']); Rou.apply(g, 0, { t: 'item', id: 100 }); Rou.apply(g, 0, { t: 'fire', at: 'opp' });
+  ok(g.turn === 0 && !g.skip[1], 'cuffs: opponent loses their turn');
 }
 { // loupe is private, coin flips and keeps the public counters, beer ejects, lemon caps at max
   let g = mk(['L', 'B'], ['loupe', 'coin', 'beer', 'lemon']);
