@@ -34,6 +34,7 @@
 const firebaseConfig = {
   apiKey: "AIzaSyAgbmBLnn3NFzMkTTB6Np_keMucgy59wSI",
   authDomain: "russian-roulette-dbc10.firebaseapp.com",
+  databaseURL: "https://russian-roulette-dbc10-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "russian-roulette-dbc10",
   storageBucket: "russian-roulette-dbc10.firebasestorage.app",
   messagingSenderId: "710260782145",
