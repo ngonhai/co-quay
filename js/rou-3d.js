@@ -164,10 +164,8 @@ const R3D = (function () {
   let cntSig = '', cntCtx, cntTex, cntGroup, cuffMeshes = [null, null], glow, glowA = 0, fxs = [];
   function makeCounter() {
     const c = document.createElement('canvas'); c.width = 512; c.height = 256; cntCtx = c.getContext('2d'); cntTex = new THREE.CanvasTexture(c); cntTex.colorSpace = THREE.SRGBColorSpace; cntTex.anisotropy = 4;
-    const mat = new THREE.MeshBasicMaterial({ map: cntTex }); cntGroup = new THREE.Group(); cntGroup.position.set(-.24, TY + .002, 0);
-    const W = .3, half = .085, top = .2, len = Math.hypot(half, top), th = -Math.atan2(half, top);
-    [0, 1].forEach(d => { const gr = new THREE.Group(); gr.rotation.y = d ? Math.PI : 0; const pl = new THREE.Mesh(new THREE.PlaneGeometry(W, len), mat); pl.rotation.x = th; pl.position.set(0, top / 2, half / 2); gr.add(pl); cntGroup.add(gr); });
-    const gb = new THREE.Mesh(new THREE.PlaneGeometry(.1, .13), mat); gb.rotation.y = Math.PI / 2; gb.position.set(W / 2, .07, 0); cntGroup.add(gb);
+    const mat = new THREE.MeshBasicMaterial({ map: cntTex, transparent: true, opacity: .93, depthWrite: false }); cntGroup = new THREE.Group(); cntGroup.position.set(-.17, TY + .007, 0);
+    [0, 1].forEach(d => { const gr = new THREE.Group(); gr.rotation.y = d ? Math.PI : 0; const pl = new THREE.Mesh(new THREE.PlaneGeometry(.3, .15), mat); pl.rotation.x = -Math.PI / 2; pl.position.set(0, 0, .1); pl.renderOrder = 2; gr.add(pl); cntGroup.add(gr); });
     scene.add(cntGroup); setCounter(0, 0, true);
   }
   function setCounter(l, b, force) {
