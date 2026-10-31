@@ -37,7 +37,7 @@ const I18N = {
       whisky: ['Ly whisky', 'Phát bắn kế tiếp, nếu là đạn thật, gây 2 sát thương.'],
       tray: ['Khay gỗ', 'Chặn trọn một viên đạn thật bắn trúng bạn.']
     },
-    exit: 'Thoát', music: 'Nhạc nền', emote: 'Biểu cảm', emotes: { smug: 'Đắc ý', laugh: 'Cười', scared: 'Sợ', angry: 'Giận', hurt: 'Đau' }, confirmLeave: 'Rời ván đang chơi?', mute: 'Âm thanh', theyOff: 'Đối thủ đang mất kết nối'
+    exit: 'Thoát', spec: 'Khán giả', camSide: 'Cạnh bàn', camP: 'Góc nhìn {n}', aimHint: 'Chọn đối thủ để bắn họ · chọn lại khẩu súng để tự bắn', notTurn: 'Chưa đến lượt bạn', d3: '3D', d2: '2D', no3dLoad: '3D failed to load: js/rou-3d.js or js/lib/three.module.min.js is missing on the host. Upload the whole js/lib folder and hard-refresh (Ctrl+F5).', no3dFile: '3D needs a web server (http/https), not a file:// page.', no3dGL: 'WebGL could not start: ', no3dLoad: '3D không tải được: thiếu js/rou-3d.js hoặc js/lib/three.module.min.js trên host. Hãy tải lên cả thư mục js/lib rồi bấm Ctrl+F5.', no3dFile: '3D cần chạy qua máy chủ web (http/https), không mở trực tiếp file.', no3dGL: '3D không khởi tạo được WebGL: ', specNote: 'Bạn đang xem', music: 'Nhạc nền', emote: 'Biểu cảm', emotes: { smug: 'Đắc ý', laugh: 'Cười', scared: 'Sợ', angry: 'Giận', hurt: 'Đau' }, confirmLeave: 'Rời ván đang chơi?', mute: 'Âm thanh', theyOff: 'Đối thủ đang mất kết nối'
   },
   en: {
     title: 'Roulette', sub: 'One cylinder, two players, a few items on the table. Anyone may use them.',
@@ -76,7 +76,7 @@ const I18N = {
       whisky: ['Whisky', 'Your next shot deals 2 damage if it is live.'],
       tray: ['Wooden tray', 'Fully blocks one live shell that would hit you.']
     },
-    exit: 'Exit', music: 'Music', emote: 'Emote', emotes: { smug: 'Smug', laugh: 'Laugh', scared: 'Scared', angry: 'Angry', hurt: 'Ouch' }, confirmLeave: 'Leave the current game?', mute: 'Sound', theyOff: 'Opponent is disconnected'
+    exit: 'Exit', spec: 'Spectator', camSide: 'Beside table', camP: '{n}\'s view', aimHint: 'Click the opponent to shoot them · click the revolver again to shoot yourself', notTurn: 'Not your turn yet', d3: '3D', d2: '2D', specNote: 'Spectating', music: 'Music', emote: 'Emote', emotes: { smug: 'Smug', laugh: 'Laugh', scared: 'Scared', angry: 'Angry', hurt: 'Ouch' }, confirmLeave: 'Leave the current game?', mute: 'Sound', theyOff: 'Opponent is disconnected'
   }
 };
 let LANG = (function () { try { const s = localStorage.getItem('rou_lang'); if (s && I18N[s]) return s; } catch (e) {} return (navigator.language || 'vi').toLowerCase().startsWith('en') ? 'en' : 'vi'; })();

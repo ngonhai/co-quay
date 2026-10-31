@@ -162,3 +162,34 @@ input[type=text]{ width:100%; padding:12px 14px; border:2px solid var(--line); b
 .player.opp .bubble{ top:auto; bottom:-30px; }
 @keyframes bub{ 0%{ transform:scale(.3) rotate(-12deg); opacity:0; } 12%{ transform:scale(1.15) rotate(4deg); opacity:1; } 22%{ transform:scale(1) rotate(0); } 82%{ opacity:1; } 100%{ transform:translateY(-14px); opacity:0; } }
 @media (max-width:480px){ .emote-btn{ right:56px; width:38px; height:38px; } .game-header .lang-select{ display:none; } .game-header .icon-btn{ padding:5px 7px; } }
+
+/* ---- v3: 3D mode (canvas behind a lighter HUD) ---- */
+#r3d-wrap{ position:fixed; inset:0; z-index:1; display:none; } #r3d-canvas{ width:100%; height:100%; display:block; outline:none; touch-action:manipulation; }
+body.mode3d #r3d-wrap{ display:block; } body.mode3d #bg,body.mode3d #lightcone,body.mode3d #dim{ display:none; }
+.cine-bar{ position:fixed; left:0; right:0; height:0; background:#000; z-index:60; pointer-events:none; transition:height .8s cubic-bezier(.3,.8,.3,1); } #cine-top{ top:0; } #cine-bot{ bottom:0; }
+body.cine .cine-bar{ height:7.5vh; }
+body.mode3d .game-header{ position:relative; z-index:70; background:rgba(5,24,31,.55); }
+body.mode3d .game-body{ display:block; padding:0; max-width:none; pointer-events:none; } body.mode3d .arena{ position:static; display:block; }
+body.mode3d .arena > *,body.mode3d .side-panel{ pointer-events:none; }
+body.mode3d #gun-svg,body.mode3d #items,body.mode3d .table-head,body.mode3d .counter .c-lbl{ display:none; }
+body.mode3d .scene-wrap{ position:fixed; left:0; right:0; top:62px; z-index:55; pointer-events:none; }
+body.mode3d .scene{ height:auto; min-height:70px; width:100%; } body.mode3d .scene::before{ display:none; } body.mode3d .banner{ position:static; transform:none !important; padding-top:8vh; } body.mode3d .banner.live,body.mode3d .banner.blank,body.mode3d .banner.good{ padding-top:10vh; }
+body.mode3d .counter{ position:fixed; top:56px; left:50%; transform:translateX(-50%); } body.mode3d .stage{ position:fixed; inset:0; }
+body.mode3d .player.opp{ position:fixed; top:56px; left:10px; z-index:56; width:min(300px,46vw); background:rgba(5,24,31,.72); pointer-events:auto; }
+body.mode3d .me-wrap{ position:fixed; left:10px; bottom:10px; z-index:56; width:min(300px,46vw); pointer-events:auto; } body.mode3d .player.me{ background:rgba(5,24,31,.72); }
+body.mode3d .emote-btn{ right:auto; left:calc(100% + 6px); } body.mode3d .emote-pop{ right:auto; left:0; }
+body.mode3d .p-wins{ display:none; } body.mode3d .p-av{ width:44px; height:44px; } body.mode3d .heart{ width:21px; height:21px; }
+body.mode3d .bar-table{ position:fixed; left:50%; bottom:74px; transform:translateX(-50%); width:min(520px,92vw); z-index:56; background:none; box-shadow:none; padding:0; clip-path:none; pointer-events:none; } body.mode3d .bar-table::before{ display:none; }
+body.mode3d .item-info{ pointer-events:auto; background:rgba(26,13,6,.82); } body.mode3d .used-chip{ position:fixed; right:12px; bottom:12px; z-index:56; }
+body.mode3d .actions{ position:fixed; left:50%; bottom:10px; transform:translateX(-50%); width:min(520px,92vw); z-index:57; pointer-events:auto; padding:0; }
+body.mode3d .btn-fire{ font-size:1.15rem; padding:9px 6px 6px; }
+body.mode3d .side-panel{ display:flex; position:fixed; right:10px; top:56px; width:240px; z-index:56; max-height:34vh; } body.mode3d .log-wrap{ max-height:34vh; min-height:0; background:rgba(5,24,31,.55); } body.mode3d #log-panel{ pointer-events:auto; }
+body.mode3d .screen#screen-game{ background:transparent; }
+.cam-bar{ display:none; position:fixed; left:50%; bottom:12px; transform:translateX(-50%); gap:6px; z-index:58; pointer-events:auto; } .cam-bar button{ background:rgba(5,24,31,.85); color:var(--ink); border:0; padding:10px 16px; font-weight:700; cursor:pointer; clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px); } .cam-bar button.on{ background:var(--amber); color:#3b2300; }
+body.spec .actions,body.spec .emote-btn,body.spec .item-info{ display:none !important; }
+@media (max-width:900px){ body.mode3d .side-panel{ display:none; } body.mode3d .player.opp{ top:50px; width:min(240px,58vw); } body.mode3d .bar-table{ bottom:70px; } body.mode3d .me-wrap{ width:min(240px,58vw); bottom:60px; } body.mode3d .actions{ bottom:8px; } }
+@media (max-width:480px){ body.mode3d .p-name{ font-size:.85rem; } body.mode3d .player{ padding:4px 8px; } body.mode3d .me-wrap{ bottom:66px; } }
+
+body.mode3d #screen-game{ pointer-events:none; } body.mode3d .game-header{ pointer-events:auto; }
+body.mode3d .banner{ position:fixed; left:0; right:0; bottom:132px; top:auto; padding:0; } body.mode3d .banner.live,body.mode3d .banner.blank,body.mode3d .banner.good{ bottom:auto; top:38%; padding:0; }
+body.mode3d .scene-wrap{ top:auto; } body.mode3d .counter{ top:56px; left:auto; right:10px; transform:none; } body.mode3d .side-panel{ top:92px; }

@@ -64,9 +64,9 @@ const Art = (function () {
 
   // ---------------------------------------------------------------- bartender avatars ----
   const EXPR = ['smug', 'laugh', 'scared', 'angry', 'hurt'];
-  function avatar(col, bot, expr) {
-    expr = expr || 'neutral';
-    const hat = col, vest = col === '#ff6a4d' ? '#c9432b' : '#2f9e8f', D = '#2a1a12', M = '#2a0f0f';
+  // face features only (eyes, brows, mustache, mouth) — shared by the 2D avatar and the 3D head texture
+  function facePieces(bot, expr) {
+    expr = expr || 'neutral'; const D = '#2a1a12', M = '#2a0f0f';
     const glasses = bot && (expr === 'neutral' || expr === 'smug' || expr === 'angry');
     let eyes, brow = '', mouth = '', extra = '';
     const eye = (x, w) => P(x + ',48 ' + (x + w) + ',48 ' + (x + w) + ',54 ' + x + ',54', D);
@@ -78,13 +78,18 @@ const Art = (function () {
       case 'laugh': eyes = P('34,54 40,46 46,54 43,54 40,50 37,54', D) + P('54,54 60,46 66,54 63,54 60,50 57,54', D); mouth = P('41,61 59,61 56,71 44,71', M) + P('46,67 54,67 52,71 48,71', '#ff6a4d'); break;
       case 'hurt': eyes = P('35,47 38,47 46,55 43,55', D) + P('43,47 46,47 38,55 35,55', D) + P('55,47 58,47 66,55 63,55', D) + P('63,47 66,47 58,55 55,55', D); mouth = P('44,63 56,63 54,70 46,70', M) + P('48,67 52,67 51,70 49,70', '#ff4d6d'); extra = P('26,36 30,36 28,44', 'rgba(255,77,109,.85)'); break;
     }
+    const eyeLayer = glasses ? P('34,48 48,48 48,55 34,55', '#1b2a30') + P('52,48 66,48 66,55 52,55', '#1b2a30') + P('48,50 52,50 52,52 48,52', '#1b2a30') : eyes;
+    return eyeLayer + brow + P('38,60 62,60 58,66 42,66', '#3b2418') + P('48,56 52,56 50,60', '#d9a97c') + mouth + extra;
+  }
+  const face = (bot, expr) => '<svg viewBox="24 32 52 42" xmlns="http://www.w3.org/2000/svg">' + facePieces(bot, expr) + '</svg>';
+  function avatar(col, bot, expr) {
+    const hat = col, vest = col === '#ff6a4d' ? '#c9432b' : '#2f9e8f';
     return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
       P('6,100 12,78 34,70 66,70 88,78 94,100', '#f6f0e2') + P('34,70 50,100 66,70 58,66 42,66', vest) + P('66,70 94,100 70,100', 'rgba(0,0,0,.14)') +
       P('44,70 50,74 56,70 56,80 50,76 44,80', '#fff') +
       P('30,34 70,34 74,54 62,70 38,70 26,54', '#f3c9a0') + P('50,34 70,34 74,54 62,70 50,70', 'rgba(0,0,0,.08)') +
       P('26,34 32,12 68,12 74,34', hat) + P('26,34 32,12 44,12 38,34', 'rgba(255,255,255,.25)') + P('18,34 82,34 78,42 22,42', vest) +
-      (glasses ? P('34,48 48,48 48,55 34,55', '#1b2a30') + P('52,48 66,48 66,55 52,55', '#1b2a30') + P('48,50 52,50 52,52 48,52', '#1b2a30') : eyes) + brow +
-      P('38,60 62,60 58,66 42,66', '#3b2418') + P('48,56 52,56 50,60', '#d9a97c') + mouth + extra + '</svg>';
+      facePieces(bot, expr) + '</svg>';
   }
 
   // ---------------------------------------------------------------- logo + drum ----
@@ -111,5 +116,5 @@ const Art = (function () {
   const BARREL = P('160,106 200,106 197,52 163,52', '#aebfc6') + P('180,106 200,106 197,52 180,52', 'rgba(0,0,0,.14)') + P('160,106 168,106 166,52 163,52', 'rgba(255,255,255,.3)') + P('157,52 203,52 201,38 159,38', '#3b4f58') + P('176,38 184,38 180,26', '#ff6a4d');
   const FLASH = '<g transform="translate(0,40)">' + P('180,-30 192,-2 222,-14 200,10 236,24 198,30 210,60 180,38 150,60 162,30 124,24 160,10 138,-14 168,-2', '#ffd36a') + P('180,-10 188,6 206,2 194,16 212,26 190,26 180,44 170,26 148,26 166,16 154,2 172,6', '#fff6d6') + '</g>';
 
-  return { EXPR, sprite, icon, scene, avatar, logo, drumSlots, drumFrame, BARREL, FLASH, ITEMS: ['loupe', 'phone', 'beer', 'lemon', 'bell', 'spin', 'coin', 'whisky', 'tray'] };
+  return { face, EXPR, sprite, icon, scene, avatar, logo, drumSlots, drumFrame, BARREL, FLASH, ITEMS: ['loupe', 'phone', 'beer', 'lemon', 'bell', 'spin', 'coin', 'whisky', 'tray'] };
 })();

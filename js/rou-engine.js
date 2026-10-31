@@ -111,7 +111,7 @@ const Rou = (function () {
   }
 
   function useItem(g, p, it) {
-    const e = { t: 'item', by: p, k: it.k };
+    const e = { t: 'item', by: p, k: it.k, id: it.id };
     g.table = g.table.filter(x => x.id !== it.id); g.used++;
     switch (it.k) {
       case 'loupe': g.ch[0].s[p] = true; e.peek = g.ch[0].k; break;

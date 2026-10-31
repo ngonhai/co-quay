@@ -14,7 +14,7 @@ const Net = (function () {
   const codeGen = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s = ''; for (let i = 0; i < 5; i++) s += c[Math.floor(Math.random() * c.length)]; return s; };
   const LOCAL_KEY = 'rou_local_room', LAST_KEY = 'rou_last_room', TTL = 12 * 36e5;
 
-  function normalize(r) { if (!r) return r; r.seats = r.seats || {}; r.settings = Rou.normSettings(r.settings); return r; }
+  function normalize(r) { if (!r) return r; r.seats = r.seats || {}; r.specs = r.specs || {}; r.settings = Rou.normSettings(r.settings); return r; }
   function getG(room) {
     room = room || S.room; if (!room || !room.gs) return null;
     if (room.gs !== S.gKey) { try { S.g = JSON.parse(room.gs); S.gKey = room.gs; } catch (e) { return null; } }
@@ -63,7 +63,8 @@ const Net = (function () {
     return ['s0', 's1'].find(k => room.seats[k] && room.seats[k].uid === MY_UID) || null;
   }
   function armPresence() {
-    const k = mySeat(); if (!k || S.mode !== 'online') return;
+    if (S.mode !== 'online') return; const k = mySeat();
+    if (!k) { const sp = S.ref.child('specs/' + MY_UID); sp.onDisconnect().remove(); if (S.room && S.room.specs[MY_UID]) return; sp.set({ name: specName(), t: Date.now() }); return; }
     const r = S.ref.child('seats/' + k);
     r.child('connected').onDisconnect().set(false); r.child('connected').set(true);
   }
@@ -77,6 +78,9 @@ const Net = (function () {
   const baseRoom = host => ({ game: 'roulette', hostUid: host, status: 'lobby', settings: Object.assign({}, Rou.DEFAULTS), seats: {}, gs: '', createdAt: Date.now() });
   const botName = () => t('bot');
 
+  const specName = () => { try { return localStorage.getItem('rou_name') || 'Guest'; } catch (e) { return 'Guest'; } };
+  const isSpec = room => !!(room && !mySeatOf(room) && room.specs && room.specs[MY_UID]);
+  const mySeatOf = room => ['s0', 's1'].find(k => room.seats[k] && room.seats[k].uid === MY_UID) || null;
   async function createOnline(name) {
     if (!ONLINE_OK) throw new Error('offline');
     const code = codeGen(), room = baseRoom(MY_UID);
@@ -93,15 +97,15 @@ const Net = (function () {
     await new Promise(res => { const t0 = Date.now(); (function w() { if (S.room || Date.now() - t0 > 4000) res(); else setTimeout(w, 30); })(); });
     if (!S.room) { detach(); return { ok: false, reason: 'noRoom' }; }
     if (mySeat()) return { ok: true, resumed: true };
-    if (S.room.status !== 'lobby') { detach(); return { ok: false, reason: 'started' }; }
+    if (S.room.specs[MY_UID]) return { ok: true, spectator: true, resumed: true };
+    // a free seat in a lobby is taken; anything else (table full / game running) = spectator standing beside the table
     const ok = await mutate(r => {
-      if (r.status !== 'lobby') return undefined;
-      if (['s0', 's1'].some(k => r.seats[k] && r.seats[k].uid === MY_UID)) return r;
-      const k = ['s0', 's1'].find(x => !r.seats[x]); if (!k) return undefined;
-      r.seats[k] = { uid: MY_UID, name, connected: true }; return r;
+      if (mySeatOf(r)) return r;
+      if (r.status === 'lobby') { const k = ['s0', 's1'].find(x => !r.seats[x]); if (k) { r.seats[k] = { uid: MY_UID, name, connected: true }; return r; } }
+      r.specs[MY_UID] = { name, t: Date.now() }; return r;
     });
-    if (!ok) { detach(); return { ok: false, reason: 'roomFull' }; }
-    return { ok: true };
+    if (!ok) { detach(); return { ok: false, reason: 'noRoom' }; }
+    return { ok: true, spectator: !mySeat() };
   }
   async function tryRejoin(code) {
     if (!ONLINE_OK || !code) return null;
@@ -109,7 +113,7 @@ const Net = (function () {
     const snap = await db.ref('rooms/' + keyOf(code)).get();
     if (!snap.exists()) return null;
     const r = normalize(snap.val());
-    if (['s0', 's1'].some(k => r.seats[k] && r.seats[k].uid === MY_UID)) { attach(code); return code; }
+    if (mySeatOf(r) || (r.specs && r.specs[MY_UID]) || r.status === 'play') { attach(code); return code; }
     return null;
   }
 
@@ -131,7 +135,8 @@ const Net = (function () {
   // one action by me; the engine decides if it is legal. Returns true if applied.
   const act = a => mutate(r => {
     if (r.status !== 'play' || !r.gs) return undefined;
-    const seat = S.mode === 'local' ? (a._seat != null ? a._seat : 0) : (r.seats.s0 && r.seats.s0.uid === MY_UID ? 0 : 1);
+    const seat = S.mode === 'local' ? (a._seat != null ? a._seat : 0) : (r.seats.s0 && r.seats.s0.uid === MY_UID ? 0 : (r.seats.s1 && r.seats.s1.uid === MY_UID ? 1 : -1));
+    if (seat < 0) return undefined;
     const g = JSON.parse(r.gs); const ac = Object.assign({}, a); delete ac._seat;
     if (!Rou.apply(g, seat, ac)) return undefined;
     r.gs = JSON.stringify(g); return r;
@@ -146,6 +151,7 @@ const Net = (function () {
     if (S.mode === 'online' && S.room) {
       const k = mySeat();
       return mutate(r => {
+        if (!k) { delete r.specs[MY_UID]; return r; }
         if (r.status === 'lobby' && k) { delete r.seats[k]; const other = ['s0', 's1'].find(x => r.seats[x]); if (r.hostUid === MY_UID && other) r.hostUid = r.seats[other].uid; return r; }
         if (k) r.seats[k].connected = false; return r;
       }).catch(() => {}).then(() => { rememberRoom(null); detach(); });
@@ -154,7 +160,7 @@ const Net = (function () {
   }
 
   return {
-    MY_UID, ONLINE_OK, S, getG, mySeat, isHost, createOnline, joinOnline, tryRejoin, startLocal, restoreLocal, hasLocal, lastRoom, setSetting, startOnline, emote, act, botAct, rematch, leave,
+    MY_UID, ONLINE_OK, S, getG, mySeat, isSpec: () => isSpec(S.room), specCount: () => S.room ? Object.keys(S.room.specs || {}).length : 0, isHost, createOnline, joinOnline, tryRejoin, startLocal, restoreLocal, hasLocal, lastRoom, setSetting, startOnline, emote, act, botAct, rematch, leave,
     room: () => S.room, mode: () => S.mode, code: () => S.code, onChange: f => { S.onChange = f; }
   };
 })();

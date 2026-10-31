@@ -32,14 +32,13 @@
 //    these are not secret keys, access is controlled by the Database Rules above).
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCNWhZlKjyVQR7O93GGO21k-ZedF99MYiM",
-  authDomain: "monopoly-407c8.firebaseapp.com",
-  databaseURL: "https://monopoly-407c8-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "monopoly-407c8",
-  storageBucket: "monopoly-407c8.firebasestorage.app",
-  messagingSenderId: "168413879724",
-  appId: "1:168413879724:web:fa97126c00f85264caee09",
-  measurementId: "G-HM97CEJNCT"
+  apiKey: "AIzaSyAgbmBLnn3NFzMkTTB6Np_keMucgy59wSI",
+  authDomain: "russian-roulette-dbc10.firebaseapp.com",
+  projectId: "russian-roulette-dbc10",
+  storageBucket: "russian-roulette-dbc10.firebasestorage.app",
+  messagingSenderId: "710260782145",
+  appId: "1:710260782145:web:60560095101c1f860f02c0",
+  measurementId: "G-R5PGJJZGVK"
 };
 
 // Guarded so the game still works OFFLINE (vs bots / hot-seat) if Firebase can't load.

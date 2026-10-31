@@ -7,7 +7,7 @@
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const SEATCOL = ['#ff6a4d', '#5eead4'];
-  const U = { screen: null, view: null, queue: [], busy: false, pending: false, sel: null, me: 0, shown: new Set(), botT: null, extra: 0, prev: null, off: null, overFor: null, tab: 'offline', expr: [null, null], exT: [0, 0], lastEmote: undefined, emoKey: '', emoCd: 0 };
+  const U = { screen: null, view: null, queue: [], busy: false, pending: false, sel: null, me: 0, shown: new Set(), botT: null, extra: 0, prev: null, off: null, overFor: null, tab: 'offline', d3: false, spec: false, cam: 'side', camSeat: 0, aim: false, expr: [null, null], exT: [0, 0], lastEmote: undefined, emoKey: '', emoCd: 0 };
   const reduce = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
   const nm = (g, i) => esc(g.names[i]);
 
@@ -16,6 +16,8 @@
     U.screen = name;
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
     document.body.dataset.screen = name;
+    document.body.classList.toggle('mode3d', U.d3 && name === 'game');
+    if (U.d3) { if (name === 'game') R3D.start(); else R3D.stop(); }
     if (name !== 'game') { document.body.classList.remove('tense'); Snd.heart(false); Snd.musicStop(); } else Snd.musicStart();
   }
   function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
@@ -38,7 +40,7 @@
     $('resume-title').textContent = t('resumeT'); $('resume-body').textContent = t('resumeB'); $('btn-resume').textContent = t('resume');
     $('room-code-label').textContent = t('roomCode'); $('seats-title').textContent = t('seats'); $('rules-title').textContent = t('rules'); $('rules-readonly-hint').textContent = t('onlyHost');
     $('btn-start-game').textContent = t('start'); $('btn-leave-waiting').textContent = t('leave');
-    $('game-title').textContent = t('title'); $('btn-rules').textContent = '?'; $('btn-rules').title = t('help'); $('btn-leave-game').textContent = '✕'; $('btn-leave-game').title = t('exit'); $('btn-sound').textContent = Snd.isMuted() ? '🔇' : '🔊'; $('btn-sound').title = 'SFX'; $('btn-music').textContent = Snd.musicOn() ? '🎵' : '🔕'; $('btn-music').title = t('music');
+    $('game-title').textContent = t('title'); $('btn-rules').textContent = '?'; $('btn-rules').title = t('help'); $('btn-leave-game').textContent = '✕'; $('btn-leave-game').title = t('exit'); $('btn-sound').textContent = Snd.isMuted() ? '🔇' : '🔊'; $('btn-sound').title = 'SFX'; $('btn-3d').textContent = U.d3 ? '3D ✓' : (U.can3d ? '2D' : '3D ✕'); $('btn-3d').title = U.d3 ? '→ 2D' : (U.can3d ? '→ 3D' : no3dReason()); $('btn-music').textContent = Snd.musicOn() ? '🎵' : '🔕'; $('btn-music').title = t('music');
     $('table-title').textContent = '🍸 ' + (LANG === 'vi' ? 'Bàn chung' : 'Shared table');
     $('off-rules').innerHTML = rulesHTML(U.off, true, true);
     langSelects();
@@ -98,7 +100,9 @@
   }
   function pushState(g, room) {
     U.room = room;
-    if (!U.view || U.view.id !== g.id) {                       // first state of a game (or a rematch): no animation
+    U.spec = Net.mode() === 'online' && Net.isSpec(); U.me = U.spec ? (U.camSeat === 1 ? 1 : 0) : (Net.mySeat() === 's1' ? 1 : 0);
+    if (!U.view || U.view.id !== g.id) {
+      if (U.d3) R3D.setup({ names: g.names, cols: SEATCOL, bots: [false, Net.mode() === 'local'], view: (U.spec && U.cam === 'side') ? 'side' : U.me });                       // first state of a game (or a rematch): no animation
       U.view = g; U.queue = []; U.busy = false; U.shown = new Set(); U.prev = null; U.extra = 0; U.pending = false; closeModal();
       renderGame(g, true); afterIdle(); return;
     }
@@ -151,7 +155,7 @@
   function renderItems(g) {
     if (U.sel != null && !g.table.some(i => i.id === U.sel)) U.sel = null;
     $('items').innerHTML = g.table.length ? g.table.map(it => itemTile(g, it)).join('') : '<p class="muted small empty">' + t('tableEmpty') + '</p>';
-    g.table.forEach(i => U.shown.add(i.id));
+    g.table.forEach(i => U.shown.add(i.id)); if (U.d3) R3D.setSelected(U.sel);
     $('used-chip').textContent = t('itemsLeft', { n: g.used, m: g.opts.perTurn });
     renderInfo(g);
   }
@@ -163,7 +167,7 @@
   }
   function renderControls(g) {
     if (!g) return;
-    const mine = g.phase === 'play' && g.turn === U.me && !U.busy && !U.pending;
+    const mine = g.phase === 'play' && g.turn === U.me && !U.busy && !U.pending && !U.spec;
     $('btn-opp').disabled = !mine; $('btn-self').disabled = !mine;
     $('btn-opp').innerHTML = t('fireOpp') + '<small>' + t('fireOppD') + '</small>'; $('btn-self').innerHTML = t('fireSelf') + '<small>' + t('fireSelfD') + '</small>';
     document.querySelectorAll('#items .item').forEach(el => { const it = g.table.find(i => i.id === +el.dataset.id); el.classList.toggle('can', !!it && Rou.canUse(g, U.me, it) && !U.busy && !U.pending); });
@@ -192,9 +196,12 @@
     }).join('');
   }
   function renderGame(g, first) {
-    U.me = Net.mySeat() === 's1' ? 1 : 0; const o = 1 - U.me;
+    U.spec = Net.mode() === 'online' && Net.isSpec(); U.me = U.spec ? (U.camSeat === 1 ? 1 : 0) : (Net.mySeat() === 's1' ? 1 : 0); const o = 1 - U.me;
+    document.body.classList.toggle('spec', U.spec); $('cam-bar').style.display = U.spec ? 'flex' : 'none';
+    document.querySelectorAll('#cam-bar button').forEach(b => { const c = b.dataset.cam; b.textContent = c === 'side' ? t('camSide') : t('camP', { n: esc(g.names[+c]) }); b.classList.toggle('on', String(U.cam === 'side' ? 'side' : U.camSeat) === c); });
+    if (U.d3) { R3D.setView(U.spec && U.cam === 'side' ? 'side' : U.me); R3D.sync(g); }
     $('opp').innerHTML = playerHTML(g, o); $('me').innerHTML = playerHTML(g, U.me);
-    $('game-room-code-label').textContent = Net.mode() === 'online' ? Net.code() : '';
+    $('game-room-code-label').textContent = Net.mode() === 'online' ? Net.code() + (U.spec ? ' · ' + t('spec') : (Net.specCount() ? ' · 👁' + Net.specCount() : '')) : '';
     $('game-room-code-label').style.display = Net.mode() === 'online' ? '' : 'none';
     $('round-chip').textContent = t('round', { n: g.round }) + ' · ' + t('wins', { a: g.wins[U.me], b: g.wins[o] });
     buildEmotes(); renderDrum(g); renderCounter(g); renderItems(g); renderControls(g);
@@ -235,20 +242,21 @@
       case 'round': say(t('roundN', { n: e.n, h: e.hp }), 'sys'); Snd.play('round'); await sleep(1000); break;
       case 'load': {
         Snd.play('load'); say(t('loading', { l: e.l, b: e.b }) + (e.items ? '<small>' + t('newItems', { n: e.items }) + '</small>' : ''), 'sys');
-        U.extra += reduce() ? 0 : 720; U.prev = Object.assign({}, U.prev || {}, { keepAnim: false }); renderDrum(g); renderCounter(g);
+        U.extra += reduce() ? 0 : 720; U.prev = Object.assign({}, U.prev || {}, { keepAnim: false }); renderDrum(g); renderCounter(g); if (U.d3) { R3D.sync(g, { keepSel: true }); R3D.spinDrum(1000); }
         await sleep(300); Snd.play('spin'); await sleep(1300); break;
       }
       case 'shot': {
         const toMe = e.at === me; setAim(toMe ? 180 : 0);
-        say(e.by === e.at ? t('aimSelf', { n: who(e.by) }) : t('aimOpp', { n: who(e.by), m: who(e.at) }), 'aim'); Snd.play('aim'); setExpr(e.at, 'scared', 2300); await sleep(650);
+        say(e.by === e.at ? t('aimSelf', { n: who(e.by) }) : t('aimOpp', { n: who(e.by), m: who(e.at) }), 'aim'); Snd.play('aim'); setExpr(e.at, 'scared', 2300); await (U.d3 ? R3D.gunAim(e.by, e.at) : sleep(650));
         const pl = before.pub.l + before.pub.b ? before.pub.l / (before.pub.l + before.pub.b) : .5, beats = pl > .5 ? 3 : 2;
-        for (let i = 0; i < beats; i++) { Snd.play('beat'); await sleep(430 + (i ? 120 : 0)); }
-        const panel = $(toMe ? 'me' : 'opp');
+        for (let i = 0; i < beats; i++) { Snd.play('beat'); await (U.d3 ? R3D.gunSuspense(430 + (i ? 120 : 0)) : sleep(430 + (i ? 120 : 0))); }
+        const panel = $(toMe ? 'me' : 'opp'); if (U.d3) R3D.gunFire(e.by, e.at, e.k, e.blocked);
         if (e.k === 'L') {
           muzzle(); flashScreen(e.blocked ? '#6cc4f5' : '#ff4d6d'); shake(); Snd.play('live'); Snd.duck(1600); say(t('live'), 'live'); const avEl = panel.querySelector('.p-av');
           if (e.blocked) { floatAt(panel, t('blockedT'), 'blue'); Snd.play('shield'); Fx.spark(avEl); } else { Fx.blood(avEl); setExpr(e.at, 'hurt', 1700); if (e.by !== e.at) setExpr(e.by, 'smug', 1700); if (Net.mode() === 'local') { if (e.at === 1 && Math.random() < .5) setTimeout(() => showEmote(1, 'angry'), 900); else if (e.at === 0 && e.by === 1 && Math.random() < .5) setTimeout(() => showEmote(1, 'laugh'), 900); } floatAt(panel, t('dmg', { n: e.dmg }), 'red'); setTimeout(() => Snd.play('hurt'), 120); panel.classList.add('hit'); setTimeout(() => panel.classList.remove('hit'), 600); }
           await sleep(1300);
         } else { Snd.play('blank'); Fx.smoke($('gun-svg')); setExpr(e.at, 'laugh', 1200); say(t('blank'), 'blank'); floatAt(panel, t('miss'), 'gray'); await sleep(1000); }
+        if (U.d3) await R3D.gunPut(e.by);
         break;
       }
       case 'again': say(t('again'), 'good'); await sleep(750); break;
@@ -260,21 +268,21 @@
   async function playItem(e, g) {
     const me = U.me, name = t('items')[e.k][0], who = esc(g.names[e.by]);
     const snd = { loupe: 'peek', phone: 'peek', beer: 'glass', lemon: 'heal', bell: 'bell', spin: 'spin', coin: 'coin', whisky: 'glass', tray: 'shield' }[e.k];
-    Snd.play(snd); if (e.k === 'lemon') Fx.heal(panelOf(e.by).querySelector('.p-hp')); if (e.k === 'tray') Fx.spark(panelOf(e.by).querySelector('.p-av'), '#6cc4f5'); popIcon(e.k, t('usedBy', { n: who, i: esc(name) })); let wait = 1000;
+    Snd.play(snd); const p3 = U.d3 ? R3D.useItem(e.by, e.k, e.id) : null; if (e.k === 'lemon') Fx.heal(panelOf(e.by).querySelector('.p-hp')); if (e.k === 'tray') Fx.spark(panelOf(e.by).querySelector('.p-av'), '#6cc4f5'); popIcon(e.k, t('usedBy', { n: who, i: esc(name) })); let wait = 1000;
     if (e.k === 'loupe' && e.by === me) { setTimeout(() => say(t('peekYou', { k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1700; }
     else if (e.k === 'phone' && e.by === me) { setTimeout(() => say(t('peekPhone', { i: e.pos + 1, k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1900; }
     else if ((e.k === 'loupe' || e.k === 'phone')) { setTimeout(() => say(t('peekThem', { n: who }), 'sys'), 450); wait = 1300; }
     else if (e.k === 'beer') { setTimeout(() => say(t('ejected', { k: kindTxt(e.kind) }), e.kind === 'L' ? 'live' : 'blank'), 450); wait = 1600; }
     else if (e.k === 'coin') { setTimeout(() => say(e.by === me && e.peek ? t('flipYou', { k: kindTxt(e.peek) }) : t('flipped'), 'sys'), 450); wait = 1500; }
-    else if (e.k === 'spin') { U.extra += reduce() ? 0 : 720; renderDrum(g); wait = 1400; }
-    await sleep(wait);
+    else if (e.k === 'spin') { U.extra += reduce() ? 0 : 720; renderDrum(g); wait = 1400; if (U.d3) setTimeout(() => { R3D.sync(g, { keepSel: true }); R3D.spinDrum(1000); }, 1500); }
+    await Promise.all([sleep(wait), p3]);
   }
 
   // ---------------------------------------------------------------- expressions + emotes ----
   const panelOf = seat => $(seat === U.me ? 'me' : 'opp');
   const isBot = seat => Net.mode() === 'local' && seat === 1;
   function setExpr(seat, ex, ms) {
-    U.expr[seat] = ex; const p = panelOf(seat), av = p && p.querySelector('.p-av');
+    U.expr[seat] = ex; if (U.d3) R3D.setExpr(seat, ex || 'neutral'); const p = panelOf(seat), av = p && p.querySelector('.p-av');
     if (av) av.innerHTML = Art.avatar(SEATCOL[seat], isBot(seat), ex);
     clearTimeout(U.exT[seat]); if (ms) U.exT[seat] = setTimeout(() => setExpr(seat, null), ms);
   }
@@ -296,7 +304,7 @@
   // ---------------------------------------------------------------- input ----
   async function doFire(at) {
     const g = U.view; if (!g || U.busy || U.pending || g.phase !== 'play' || g.turn !== U.me) return;
-    Snd.unlock(); Snd.play('click'); U.pending = true; renderControls(g);
+    Snd.unlock(); Snd.play('click'); U.pending = true; U.aim = false; if (U.d3) R3D.setAimMode(false); renderControls(g);
     const ok = await Net.act({ t: 'fire', at }); if (!ok) { U.pending = false; renderControls(g); Snd.play('error'); }
   }
   async function doItem(id) {
@@ -304,6 +312,17 @@
     if (!it || !Rou.canUse(g, U.me, it)) { Snd.play('error'); return; }
     Snd.unlock(); U.pending = true; U.sel = null; renderControls(g);
     const ok = await Net.act({ t: 'item', id }); if (!ok) { U.pending = false; renderControls(g); Snd.play('error'); }
+  }
+  // click on a 3D object: items are selected (click again = use), the revolver arms the shot (click the opponent = shoot them, click it again = shoot yourself)
+  function onPick3(p) {
+    const g = U.view; if (!g || U.spec || U.busy || U.pending) return; Snd.unlock();
+    if (p.type === 'item') { if (U.sel === p.id) { doItem(p.id); } else { U.sel = p.id; Snd.play('select'); renderInfo(g); R3D.setSelected(p.id); } return; }
+    if (p.type === 'gun') {
+      if (g.phase !== 'play' || g.turn !== U.me) { toast(t('notTurn')); return; }
+      if (!U.aim) { U.aim = true; R3D.setAimMode(true); toast(t('aimHint')); Snd.play('select'); } else doFire('self'); return;
+    }
+    if (p.type === 'player' && p.seat !== U.me && U.aim) { doFire('opp'); return; }
+    U.sel = null; U.aim = false; R3D.setAimMode(false); R3D.setSelected(null); renderInfo(g);
   }
   function afterIdle() {
     clearTimeout(U.botT); const g = U.view; if (!g) return;
@@ -318,7 +337,7 @@
   function showOver(g) {
     if (U.overFor === g.seq) return; U.overFor = g.seq; const me = U.me, w = g.lw, host = Net.isHost(U.room || Net.room());
     if (g.phase === 'between') {
-      modal('<h2 class="center">' + t('roundWin', { n: esc(g.names[w]) }) + '</h2><p class="center score">' + g.wins[me] + ' – ' + g.wins[1 - me] + '</p><p class="muted center">' + t('loserStarts') + '</p><button type="button" class="btn btn-block" id="btn-next">' + t('nextRound') + '</button>');
+      modal('<h2 class="center">' + t('roundWin', { n: esc(g.names[w]) }) + '</h2><p class="center score">' + g.wins[me] + ' – ' + g.wins[1 - me] + '</p><p class="muted center">' + t('loserStarts') + '</p>' + (U.spec ? '' : '<button type="button" class="btn btn-block" id="btn-next">' + t('nextRound') + '</button>'));
       Snd.play(w === me ? 'win' : 'lose');
     } else {
       const won = g.winner === me; Snd.play(won ? 'win' : 'lose'); if (won) Fx.confetti();
@@ -370,6 +389,8 @@
     $('btn-leave-waiting').onclick = leaveToLobby;
     $('btn-leave-game').onclick = () => { if (confirm(t('confirmLeave'))) leaveToLobby(); };
     $('btn-rules').onclick = helpModal;
+    $('btn-3d').onclick = () => { if (!U.d3 && !U.can3d) { toast(no3dReason()); return; } try { localStorage.setItem('rou_3d', U.d3 ? '0' : '1'); } catch (e) {} location.reload(); };
+    document.querySelectorAll('#cam-bar button').forEach(b => { b.onclick = () => { const c = b.dataset.cam; U.cam = c === 'side' ? 'side' : 'pov'; if (c !== 'side') U.camSeat = +c; Snd.play('click'); if (U.view) renderGame(U.view); }; });
     $('btn-music').onclick = () => { Snd.musicToggle(); applyLang(); };
     $('btn-sound').onclick = () => { Snd.toggle(); applyLang(); if (U.view) tension(U.view); };
     $('btn-opp').onclick = () => doFire('opp'); $('btn-self').onclick = () => doFire('self');
@@ -383,6 +404,7 @@
   }
 
   // ---------------------------------------------------------------- boot ----
+  const no3dReason = () => location.protocol === 'file:' ? t('no3dFile') : (!window.R3D ? t('no3dLoad') : t('no3dGL') + (R3D.err() || '?'));
   async function boot() {
     $('bg').innerHTML = Art.scene(); document.body.insertAdjacentHTML('afterbegin', Art.sprite());
     $('lobby-logo').innerHTML = Art.logo();
@@ -390,6 +412,9 @@
     $('hub').innerHTML = '<polygon points="180,184 191.3,188.7 196,200 191.3,211.3 180,216 168.7,211.3 164,200 168.7,188.7" fill="#e0b04a"/><polygon points="180,184 191.3,188.7 196,200 180,200" fill="rgba(255,255,255,.3)"/>';
     try { U.off = Rou.normSettings(JSON.parse(localStorage.getItem('rou_rules') || 'null')); } catch (e) { U.off = Rou.normSettings(); }
     try { $('input-name').value = localStorage.getItem('rou_name') || ''; } catch (e) {}
+    try { U.d3 = localStorage.getItem('rou_3d') !== '0' && !!window.R3D && R3D.init($('r3d-wrap')); } catch (e) { U.d3 = false; }
+    U.can3d = !!window.R3D && (U.d3 || R3D.init($('r3d-wrap')));
+    if (U.d3) R3D.onPick(onPick3);
     Fx.init(); Net.onChange(onRoom); wire(); Snd.probe(); renderLobbyTabs();
     const hash = (location.hash || '').replace('#', '').toUpperCase();
     if (hash.length === 5) { U.tab = 'join'; $('input-room-code').value = hash; renderLobbyTabs(); }
