@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roulette</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+  <div id="bg" aria-hidden="true"></div>
+  <div id="dim" aria-hidden="true"></div>
+  <div id="lightcone" aria-hidden="true"></div>
+  <div id="vignette" aria-hidden="true"></div>
+
+  <section id="screen-loading" class="screen active"><div class="loading-spinner"></div></section>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen">
+    <div class="lobby-card poly">
+      <select class="lang-select lobby-lang" aria-label="Language"></select>
+      <div class="lobby-logo" id="lobby-logo"></div>
+      <h1 class="lobby-title" id="lobby-title"></h1>
+      <p class="lobby-sub muted" id="lobby-sub"></p>
+
+      <label for="input-name" id="lbl-name"></label>
+      <input type="text" id="input-name" maxlength="16" autocomplete="off">
+
+      <div class="resume-card" id="resume-card" style="display:none">
+        <div class="resume-text"><b id="resume-title"></b><p class="muted" id="resume-body"></p></div>
+        <button type="button" class="btn" id="btn-resume"></button>
+      </div>
+
+      <div class="tabs">
+        <button type="button" class="tab-btn" data-tab="create" id="tab-btn-create"></button>
+        <button type="button" class="tab-btn" data-tab="join" id="tab-btn-join"></button>
+        <button type="button" class="tab-btn active" data-tab="offline" id="tab-btn-offline"></button>
+      </div>
+      <div class="tab-panel" id="tab-create"><button type="button" class="btn btn-block" id="btn-create-room"></button></div>
+      <div class="tab-panel" id="tab-join">
+        <label for="input-room-code" id="lbl-code"></label>
+        <input type="text" id="input-room-code" maxlength="5" autocomplete="off" style="text-transform:uppercase">
+        <button type="button" class="btn btn-block" id="btn-join-room"></button>
+      </div>
+      <div class="tab-panel active" id="tab-offline">
+        <p class="muted small" id="offline-hint"></p>
+        <div id="off-rules"></div>
+        <button type="button" class="btn btn-block" id="btn-start-offline"></button>
+      </div>
+      <p class="muted small center" id="online-off-note" style="display:none"></p>
+    </div>
+  </section>
+
+  <!-- ============ WAITING ROOM ============ -->
+  <section id="screen-waiting" class="screen">
+    <div class="waiting-card poly">
+      <div class="room-code-box" id="room-code-box"><div class="label" id="room-code-label"></div><div class="code" id="room-code-display">-----</div></div>
+      <h3 id="seats-title"></h3>
+      <div id="seat-grid" class="seat-grid"></div>
+      <div class="rules-box"><h3 id="rules-title"></h3><div id="rules-list"></div><p id="rules-readonly-hint" class="muted small"></p></div>
+      <button type="button" class="btn btn-block" id="btn-start-game"></button>
+      <p id="waiting-hint" class="muted center"></p>
+      <button type="button" class="btn btn-secondary btn-block" id="btn-leave-waiting"></button>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen">
+    <div class="game-header">
+      <h2><span id="game-title"></span> <span class="room-chip" id="game-room-code-label"></span> <span class="room-chip" id="round-chip"></span></h2>
+      <div class="header-actions">
+        <button type="button" class="icon-btn" id="btn-rules"></button>
+        <button type="button" class="icon-btn" id="btn-music"></button>
+        <button type="button" class="icon-btn" id="btn-sound"></button>
+        <select class="lang-select" aria-label="Language"></select>
+        <button type="button" class="icon-btn" id="btn-leave-game"></button>
+      </div>
+    </div>
+    <div class="game-body">
+      <div class="arena">
+        <div class="player opp" id="opp"></div>
+        <div class="scene-wrap">
+          <div class="scene" id="scene">
+            <svg id="gun-svg" viewBox="30 18 300 364" xmlns="http://www.w3.org/2000/svg">
+              <g id="gun"><g id="gun-art"></g><g id="drum"></g><g id="hub"></g><g id="flash"></g></g>
+            </svg>
+            <div id="banner" class="banner"></div>
+            <div id="stage" class="stage"></div>
+          </div>
+          <div class="counter" id="counter"></div>
+        </div>
+        <div class="bar-table poly" id="bar-table">
+          <div class="table-head"><span id="table-title"></span><span id="used-chip" class="used-chip"></span></div>
+          <div class="items" id="items"></div>
+          <div class="item-info" id="item-info"></div>
+        </div>
+        <div class="me-wrap"><div class="player me" id="me"></div><button type="button" class="emote-btn" id="btn-emote"></button><div class="emote-pop" id="emote-pop"></div></div>
+        <div class="actions">
+          <button type="button" class="btn btn-fire" id="btn-opp"></button>
+          <button type="button" class="btn btn-alt btn-fire" id="btn-self"></button>
+        </div>
+      </div>
+      <div class="side-panel"><div class="log-wrap"><div id="log-panel"></div></div></div>
+    </div>
+  </section>
+
+  <div id="modal"></div>
+  <div id="toast"></div>
+  <div id="fx"></div>
+  <div id="flash-screen"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="js/firebase-config.js?v=1"></script>
+  <script src="js/i18n.js?v=1"></script>
+  <script src="js/rou-sound.js?v=1"></script>
+  <script src="js/rou-art.js?v=1"></script>
+  <script src="js/rou-fx.js?v=1"></script>
+  <script src="js/rou-engine.js?v=1"></script>
+  <script src="js/rou-net.js?v=1"></script>
+  <script src="js/rou-ui.js?v=1"></script>
+</body>
+</html>
