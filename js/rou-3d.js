@@ -7,7 +7,7 @@
 //   setView(seat|'side'), setSelected(id), setExpr(seat, expr), say(seat, text, name, color, ms)   (table talk: a flat board above the speaker's head), slam(seat), point(by, at)
 import * as THREE from 'three';
 
-const R = 1.15, TY = .78, CT = .004;      // seat distance from the table centre, table top height
+const R = 1.0, TY = .78, CT = .004;      // seat distance from the table centre, table top height
 const UP = new THREE.Vector3(0, 1, 0), V = (x, y, z) => new THREE.Vector3(x, y, z);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const eio = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2, eo = u => 1 - Math.pow(1 - u, 3), lin = u => u;
@@ -239,7 +239,8 @@ const R3D = (function () {
     g.userData = { flash, drum, marks, held: null, kick: 0, n: 0, rest: { pos: V(0, 0, 0), q: new THREE.Quaternion() } }; g.scale.setScalar(GS); return g;
   }
   const restPose = s => ({ pos: sw(s, .3, TY + .066, .66), q: poseQ(s, 0, Math.PI, 0).multiply(rotQ(V(0, 0, 1), -Math.PI / 2)) });
-  function gunRest(s, center) { const u = gunObj.userData, r = restPose(s || 0); if (center) { r.pos.set(0, TY + .066, .02); r.q.premultiply(rotQ(UP, Math.PI / 2 + .25)); } u.rest.pos.copy(r.pos); u.rest.q.copy(r.q); gunObj.position.copy(u.rest.pos); gunObj.quaternion.copy(u.rest.q); u.held = null; if (aimMode) gunObj.position.y += .05; }
+  const GC = V(0, TY + .066, 0);      // the gun's home: the middle of the table. Whoever shoots picks it up from there and puts it back there.
+  function gunRest(s) { const u = gunObj.userData; u.rest.pos.copy(GC); u.rest.q.copy(restPose(s || 0).q); gunObj.position.copy(GC); gunObj.quaternion.copy(u.rest.q); u.held = null; if (aimMode) gunObj.position.y += .05; }
   // where the wrist and the hand's orientation must be for a gun at (pos, q)
   function holdPose(pos, q) { const off = GRIPC.clone().multiplyScalar(GS).add(HOLD_OFF.clone().applyQuaternion(GTILT)).applyQuaternion(q); return { w: pos.clone().add(off), q: q.clone().multiply(GTILT).multiply(HOLD_Q) }; }
   const AIM = { def: [.82, .06, .5], dog: [.55, .06, .8], fox: [.76, .06, .62], hawk: [.72, .05, .68], goat: [.72, .06, .66] }, aray = new THREE.Raycaster(), _lm = new THREE.Matrix4();
@@ -263,12 +264,6 @@ const R3D = (function () {
     if (h.kick) { g.position.addScaledVector(ap.dir, -h.kick * .05); g.quaternion.multiply(rotQ(V(1, 0, 0), -h.kick * .4)); }
     const hp = holdPose(g.position, g.quaternion); h.hand.pos.copy(hp.w); h.hand.lockQ = hp.q;
   }
-  async function passGun1(p) {      // slide the gun across the table to whoever has to shoot
-    if (!ok || !gunObj || gunObj.userData.held) return; const g = gunObj, t = restPose(p), a0 = g.position.clone(), q0 = g.quaternion.clone();
-    if (a0.distanceTo(t.pos) > .05) { Snd.play('card'); await tween(650, e => { g.position.lerpVectors(a0, t.pos, e); g.position.y += Math.sin(Math.PI * e) * .09; g.quaternion.slerpQuaternions(q0, t.q, e); }, eio); }
-    gunRest(p);
-  }
-
   // ---- on-table live/blank sign, cuffs on the table edge, blood on the table ----
   let cntSig = '', cntCtx, cntTex, cntGroup;
   function makeCounter() {
@@ -387,7 +382,7 @@ const R3D = (function () {
     const pos = T.pos.clone(), look = T.look.clone();
     if (view.mode === 'pov') {                                   // breathing + mouse parallax + cinematic dolly
       const s = view.seat, fw = look.clone().sub(pos).normalize(); pos.addScaledVector(fw, cine.dolly); pos.y += Math.sin(t * 1.3) * .004 - cine.pitch * .1;
-      look.addScaledVector(SEAT[s].right, view.parX * .22).add(V(0, view.parY * .12 + Math.sin(t * .9) * .004, 0));
+      look.addScaledVector(SEAT[s].right, view.parX * .22).add(V(0, view.parY * (view.parY < 0 ? .72 : .12) + Math.sin(t * .9) * .004, 0)); if (view.parY < 0) pos.addScaledVector(fw, -view.parY * .06);
     }
     if (cine.k > .001) look.lerp(cine.focus, cine.k);
     camPos.lerp(pos, k); camLook.lerp(look, k); cam.position.copy(camPos);
@@ -402,10 +397,10 @@ const R3D = (function () {
   const headPos = s => { players[s].head.updateWorldMatrix(true, true); return players[s].head.getWorldPosition(V(0, 0, 0)); };
   async function gunAim(by, at) {
     if (!ok || !players[by] || !players[at]) return; const P = players[by], arm = P.arms[0], u = gunObj.userData, self = by === at; curShot = { by, at };
-    await passGun1(by);
-    const hp = holdPose(u.rest.pos, u.rest.q); arm.lockQ = hp.q; arm.lockW = 0; arm.gun = true;
-    await Promise.all([moveHand(arm, hp.w.clone().add(V(0, .15, 0)), 380), tween(380, e => { arm.lockW = e; }, lin)]);
-    await moveHand(arm, hp.w, 140); await gripTo(arm, 1, 150);
+    const nat = restPose(by).q, hp = holdPose(GC, nat); u.rest.pos.copy(GC); arm.lockQ = hp.q; arm.lockW = 0; arm.gun = true;
+    await Promise.all([moveHand(arm, hp.w.clone().add(V(0, .15, 0)), 520), tween(520, e => { arm.lockW = e; }, lin)]);
+    await moveHand(arm, hp.w, 160); await gripTo(arm, 1, 170);
+    { const q0 = gunObj.quaternion.clone(); if (q0.angleTo(nat) > .02) await tween(240, e => { gunObj.quaternion.slerpQuaternions(q0, nat, e); }, eio); } u.rest.q.copy(nat); gunObj.quaternion.copy(nat);
     u.held = { hand: arm, by, at, k: 0, kick: 0, frozen: null, pose: () => self ? aimPose(by) : oppPose(by, at) }; Snd.play('select');
     if (self) focusOn(headPos(by).add(V(0, .05, 0)), view.mode === 'pov' && view.seat === by ? .35 : .6, 12, .25);
     else if (view.mode === 'pov' && view.seat === at) focusOn(gunObj.position.clone().add(V(0, .08, 0)), .55, 8, .15);
@@ -424,7 +419,7 @@ const R3D = (function () {
       await wait(520);
     } else { tween(90, e => { h.kick = e * .15; }, lin).then(() => tween(200, e => { h.kick = .15 * (1 - e); }, eo)); await wait(300); }
   }
-  async function reactHit(s) { const p = players[s]; if (!p || p.dead) return; await tween(150, u => { p.hit = u; }, eo); await tween(900, u => { p.hit = 1 - u; }, eio); }
+  async function reactHit(s) { const p = players[s]; if (!p || p.dead) return; await tween(90, u => { p.hit = u; }, eo); await wait(260); await tween(850, u => { p.hit = 1 - u; }, eio); }
   async function gunPut(by) {
     if (!ok) return; const u = gunObj.userData, h = u.held; if (!h) { unfocus(); return; } const arm = h.hand;
     await tween(650, e => { h.k = 1 - e; }, lin);
@@ -548,7 +543,7 @@ const R3D = (function () {
     items.forEach(r => { if (r.attached) { r.attached.hand.updateWorldMatrix(true, false); r.group.position.copy(r.attached.hand.localToWorld(r.loff.clone())); r.group.position.y += r.lift; } });
     players.forEach((p, s) => { if (!p) return; const idle = Math.sin(t * 1.2 + s) * .004;
       if (!p.dead && !p.busy) { p.body.position.y = .7 + idle; p.body.rotation.x = 0; } else if (p.dead && !p.busy) { p.body.position.y = .45; p.body.rotation.x = -1.25; }
-      p.torso.rotation.x = -p.hit * .18; p.head.rotation.x = -p.hit * .45 + Math.sin(t * .7 + s) * .02;
+      p.torso.rotation.x = p.hit * .18; p.head.rotation.x = p.hit * .75 + Math.sin(t * .7 + s) * .02; if (!p.dead && !p.busy) p.body.position.z = p.hit * .09;
       const lk = p.lookTo != null && SEAT[p.lookTo] ? sw(p.lookTo, 0, 1.4, 0) : (p.look && p.look.lengthSq() > 0 ? p.look : sw(1 - s, 0, 1.4, 0));
       if (!p.dead) { const lp = p.head.getWorldPosition(V(0, 0, 0)), dir = lk.clone().sub(lp).applyAxisAngle(UP, SEAT[s].phi); p.head.rotation.y += (clamp(Math.atan2(-dir.x, -dir.z) * .5, -.7, .7) - p.head.rotation.y) * .05; }
     });
@@ -582,7 +577,7 @@ const R3D = (function () {
   function start() { if (!ok || running) return; running = true; resize(); lastT = performance.now(); raf = requestAnimationFrame(frame); }
   function stop() { running = false; cancelAnimationFrame(raf); clearInterval(hidT); }
   return {
-    err: () => lastErr, init, setup, sync, live, start, stop, resize, setView, setSelected, setAimMode, gunAim, gunSuspense, gunFire, gunPut, useItem, spinDrum, die, revive, say, slam, point, setExpr, passGun: p => passGun1(p),
+    err: () => lastErr, init, setup, sync, live, start, stop, resize, setView, setSelected, setAimMode, gunAim, gunSuspense, gunFire, gunPut, useItem, spinDrum, die, revive, say, slam, point, setExpr,
     onPick: f => { cb.pick = f; }, onHover: f => { cb.hover = f; }, isOk: () => ok,
     boardDbg: () => boards.map(b => ({ s: b.s, op: +b.mat.opacity.toFixed(3), vis: b.grp.visible })),
     itemIds: () => [...items.keys()], dbg: () => ({ gun: gunObj.position.toArray(), held: !!gunObj.userData.held, players: players.map(p => p && { dead: p.dead, char: p.char }) })
