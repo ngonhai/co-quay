@@ -52,3 +52,24 @@ Open `index.html` through any static server.
 - 3D: wide drooping hat brim + shadow across the face, shorter neck, wider shoulders, bigger arms/hands; faint pale-yellow hover glow on table items; blood sprays onto the table and fades; a 3D "N LIVE / N BLANK" sign next to the revolver (HUD counter hidden in 3D).
 - Handcuffs replace the bell: slid to the opponent's table edge and locked there until their turn is skipped.
 - Quieter BGM thump.
+
+---
+
+## v6 — brought up to the level of Sus Tavern
+
+**Look (3D):** the whole table is now painted: toon shading with a brush-streak texture and an ink outline on everything (room, table, props, gun). Players are the same 8 animals as in Sus Tavern (pig, fox, dog, goat, octopus, penguin, hawk, turtle), each wearing a bartender's hat in the seat colour, with jointed arms and five-finger hands, expressions drawn as wobbly SVG faces. The gun lies on its side, slides to whoever shoots, the hand wraps the grip, the muzzle goes to your own head (shoot yourself) or points across the table (shoot opponent). The loser of a round falls off the chair. The wall carries a random tavern sign (per room, in the room creator's language). Jazz background music (tension still nudges the tempo).
+
+**Functions:**
+- **Characters:** pick your animal in the offline form and in the waiting room (two players never share one); bots get a free animal and a random name from a list.
+- **Bot table talk** (rule "Bot table talk", on by default): while you decide, the bot says whether the firing-chamber shell is live or blank. It only uses what it really knows (its own peek / the public counts) and may lie to steer you (Easy: random, Normal: lies most of the time when it knows, Hard: mixes truth and lies so it is unreadable). 2D: bubble over the avatar. 3D: a board over the head. The bot also shows up in the log.
+- **Sealed online rooms:** the room carries only the public state (no shell kinds, no seed, no peeks); each player receives only their own peeks; the host's browser is the referee. Needs Firebase anonymous sign-in + the `secure` block of `database.rules.json`; without them rooms are open as before. *With two players the referee is one of them: the host's browser can still see the cylinder. Sealing protects the guest and spectators.*
+- **Room link:** `<page>?room=CODE` is kept in the address bar while you are in a room (an old `#CODE` still works); refreshing on it puts you back; a stranger who opens it of a running game joins as a spectator.
+- **24 h expiry:** a room nobody wrote to for 24 h is gone (its data is deleted when someone touches the code, and the code can be handed out again).
+- **Table chat** with suggestions (Tab) in online rooms; seated players' lines also appear over their head. Path `roomChats/roulette_<CODE>` (open in the rules file).
+- **Host can add/remove a bot** on the free seat of an online room (spectators can watch the match).
+- **Gestures (3D):** double-click the table to slam it, click the opponent (when the gun is not armed) to point; both are synced to the other player.
+- "Leave table?" confirmation, rule rows with icons, text selection only in log/chat/inputs, log scroll stays put.
+
+**Tests** (`node tests/engine.test.js`, `rooms`, `sealed`, `chat`): rules + secrecy + bot honesty, room lifecycle, sealed rooms against the real `database.rules.json` (in-memory Firebase, `tests/fakefb.js`), chat.
+
+**Publishing:** copy the `secure`/`roomChats` parts of `database.rules.json` into your Realtime Database rules (merge with your other games' nodes) and enable Authentication > Anonymous.

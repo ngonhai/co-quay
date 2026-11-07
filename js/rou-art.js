@@ -4,6 +4,10 @@ const Art = (function () {
   'use strict';
   const ng = (cx, cy, r, n, rot) => Array.from({ length: n }, (_, i) => { const a = ((rot || 0) + i * 360 / n - 90) * Math.PI / 180; return (cx + r * Math.cos(a)).toFixed(1) + ',' + (cy + r * Math.sin(a)).toFixed(1); }).join(' ');
   const P = (pts, fill, ex) => '<polygon points="' + pts + '" fill="' + fill + '"' + (ex ? ' ' + ex : '') + '/>';
+  const P0 = 0;
+  const FILTERS = '<filter id="rough" x="-8%" y="-8%" width="116%" height="116%"><feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>' +
+    '<filter id="scratch" x="-6%" y="-12%" width="112%" height="124%"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.75" numOctaves="2" seed="3" result="s"/><feColorMatrix in="s" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -10 7.1" result="m"/><feComposite in="SourceGraphic" in2="m" operator="in" result="c"/><feTurbulence type="turbulence" baseFrequency="0.05" numOctaves="2" seed="8" result="d"/><feDisplacementMap in="c" in2="d" scale="3"/></filter>';
+  const defs = () => '<defs>' + FILTERS + '</defs>';
   const HI = 'rgba(255,255,255,.28)', SH = 'rgba(0,0,0,.18)';
 
   const ICON = {
@@ -24,7 +28,7 @@ const Art = (function () {
   const NAMES = Object.keys(ICON);
   function sprite() {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute" aria-hidden="true"><defs>' +
-      '<filter id="rough" x="-5%" y="-10%" width="110%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="3.2"/></filter>' +
+      FILTERS +
       NAMES.map(k => '<symbol id="ic-' + k + '" viewBox="0 0 64 64">' + ICON[k] + '</symbol>').join('') + '</defs></svg>';
   }
   const icon = (k, cls) => '<svg class="ic ' + (cls || '') + '" viewBox="0 0 64 64"><use href="#ic-' + k + '"/></svg>';
@@ -62,35 +66,70 @@ const Art = (function () {
     return o;
   }
 
-  // ---------------------------------------------------------------- bartender avatars ----
-  const EXPR = ['smug', 'laugh', 'scared', 'angry', 'hurt'];
-  // face features only (eyes, brows, mustache, mouth) — shared by the 2D avatar and the 3D head texture
-  function facePieces(bot, expr) {
-    expr = expr || 'neutral'; const D = '#2a1a12', M = '#2a0f0f';
-    const glasses = bot && (expr === 'neutral' || expr === 'smug' || expr === 'angry');
-    let eyes, brow = '', mouth = '', extra = '';
-    const eye = (x, w) => P(x + ',48 ' + (x + w) + ',48 ' + (x + w) + ',54 ' + x + ',54', D);
-    eyes = eye(36, 8) + eye(56, 8);
-    switch (expr) {
-      case 'smug': eyes = P('36,50 44,50 44,54 36,54', D) + P('56,50 64,50 64,54 56,54', D) + P('35,47 45,47 45,50 35,50', '#e0b48a') + P('55,47 65,47 65,50 55,50', '#e0b48a'); brow = P('34,42 46,45 46,47 34,45', D) + P('54,44 66,42 66,44 54,47', D); mouth = P('42,67 56,67 63,62 62,68 44,70', M); break;
-      case 'scared': eyes = P('34,44 46,44 46,57 34,57', '#fff') + P('54,44 66,44 66,57 54,57', '#fff') + P('39,49 42,49 42,53 39,53', D) + P('58,49 61,49 61,53 58,53', D); brow = P('34,39 46,42 46,44 34,41', D) + P('54,42 66,39 66,41 54,44', D); mouth = P('45,63 55,63 54,71 46,71', M); extra = P('72,38 76,47 72,54 68,47', '#6cc4f5'); break;
-      case 'angry': eyes = eye(37, 7) + eye(56, 7); brow = P('33,43 47,49 47,52 33,47', D) + P('53,49 67,43 67,47 53,52', D); mouth = P('43,69 57,69 55,66 45,66', M); break;
-      case 'laugh': eyes = P('34,54 40,46 46,54 43,54 40,50 37,54', D) + P('54,54 60,46 66,54 63,54 60,50 57,54', D); mouth = P('41,61 59,61 56,71 44,71', M) + P('46,67 54,67 52,71 48,71', '#ff6a4d'); break;
-      case 'hurt': eyes = P('35,47 38,47 46,55 43,55', D) + P('43,47 46,47 38,55 35,55', D) + P('55,47 58,47 66,55 63,55', D) + P('63,47 66,47 58,55 55,55', D); mouth = P('44,63 56,63 54,70 46,70', M) + P('48,67 52,67 51,70 49,70', '#ff4d6d'); extra = P('26,36 30,36 28,44', 'rgba(255,77,109,.85)'); break;
+  const INK = '#2a1a14';
+  // ---------------------------------------------------------------- animals ----
+  const CH = {
+    pig:  { name: 'pig',  skin: '#f4a6b8', dark: '#d9788f', ey: 48, ex: 15, my: 87, col: '#f4a6b8' },
+    fox:  { name: 'fox',  skin: '#f08a3c', dark: '#b85a1c', ey: 46, ex: 16, my: 84, col: '#f08a3c' },
+    dog:  { name: 'dog',  skin: '#c99a62', dark: '#7b4b26', ey: 46, ex: 16, my: 84, col: '#c99a62' },
+    goat: { name: 'goat', skin: '#efe8d8', dark: '#b9ab86', ey: 44, ex: 17, my: 88, col: '#efe8d8' },
+    octo: { name: 'octo', skin: '#9a6bd6', dark: '#6a3fa8', ey: 50, ex: 17, my: 68, col: '#9a6bd6' },
+    penguin: { name: 'penguin', skin: '#34415c', dark: '#1f2a40', ey: 44, ex: 14, my: 86, col: '#34415c' },
+    hawk: { name: 'hawk', skin: '#8a5a32', dark: '#5c3a1e', ey: 44, ex: 15, my: 86, col: '#8a5a32' },
+    turtle: { name: 'turtle', skin: '#6fbf73', dark: '#3f8a4a', ey: 52, ex: 15, my: 82, col: '#6fbf73' }
+  };
+  function body(c) {
+    const k = CH[c] || CH.pig, S = k.skin, D = k.dark;
+    switch (c) {
+      case 'fox': return P('10,6 38,30 16,46', S) + P('90,6 62,30 84,46', S) + P('14,12 32,30 20,40', D) + P('86,12 68,30 80,40', D) + P('12,40 50,26 88,40 80,72 50,92 20,72', S) + P('12,40 34,60 20,72', '#fff3e0') + P('88,40 66,60 80,72', '#fff3e0') + P('34,62 50,54 66,62 58,86 50,92 42,86', '#fff3e0') + P('44,78 56,78 50,86', INK);
+      case 'dog': return P('6,24 30,22 34,66 12,70', D) + P('94,24 70,22 66,66 88,70', D) + P(ng(50, 52, 34, 10), S) + P('22,36 40,38 34,52 20,52', D, 'opacity=".7"') + P('36,58 64,58 68,76 50,86 32,76', '#f1dcb8') + P('43,64 57,64 50,73', INK);
+      case 'goat': return P('28,28 14,4 30,8 42,26', '#c9b27a') + P('72,28 86,4 70,8 58,26', '#c9b27a') + P('4,40 28,36 26,50', S) + P('96,40 72,36 74,50', S) + P('28,24 72,24 78,62 64,90 36,90 22,62', S) + P('44,88 56,88 50,102', D) + P('36,66 64,66 62,86 38,86', '#d8cba8') + P('44,72 48,72 48,76 44,76', INK) + P('52,72 56,72 56,76 52,76', INK);
+      case 'octo': return [14, 30, 46, 62, 78].map((x, i) => P(x + ',70 ' + (x + 14) + ',70 ' + (x + 16 + (i % 2 ? 6 : -4)) + ',96 ' + (x + 8) + ',100 ' + (x + (i % 2 ? -4 : 6)) + ',88', D)).join('') + P('10,58 18,26 50,8 82,26 90,58 80,78 20,78', S) + P(ng(34, 26, 5, 7), '#c3a1f0') + P(ng(66, 20, 4, 7), '#c3a1f0') + P(ng(52, 34, 3, 6), '#c3a1f0');
+      case 'penguin': return P(ng(50, 52, 36, 10), S) + P('26,46 50,38 74,46 70,74 50,86 30,74', '#f6f0e2') + P('42,60 58,60 50,74', '#ff9a2e') + P('10,60 22,50 22,70', D) + P('90,60 78,50 78,70', D);
+      case 'hawk': return P('18,26 40,40 20,52', D) + P('82,26 60,40 80,52', D) + P(ng(50, 52, 34, 10), S) + P('24,40 76,40 72,60 28,60', '#efe0c0') + P('18,30 48,42 46,47 22,38', D) + P('82,30 52,42 54,47 78,38', D) + P('42,58 58,58 56,72 50,82 46,72', '#f2c23a') + P('50,82 46,72 56,72', '#b88a10');
+      case 'turtle': return P('10,44 18,12 50,2 82,12 90,44', D) + P('26,14 50,8 40,30', 'rgba(255,255,255,.18)') + P('60,10 74,18 62,34', 'rgba(255,255,255,.18)') + P(ng(50, 56, 32, 10), S) + P('30,74 70,74 66,86 34,86', D) + P(ng(30, 66, 4, 6), D) + P(ng(70, 66, 4, 6), D);
+      default: return P('12,22 38,18 34,42', D) + P('88,22 62,18 66,42', D) + P(ng(50, 52, 35, 9), S) + P('34,58 66,58 70,70 62,80 38,80 30,70', D) + P(ng(42, 69, 4, 6), INK) + P(ng(58, 69, 4, 6), INK);
     }
-    const eyeLayer = glasses ? P('34,48 48,48 48,55 34,55', '#1b2a30') + P('52,48 66,48 66,55 52,55', '#1b2a30') + P('48,50 52,50 52,52 48,52', '#1b2a30') : eyes;
-    return eyeLayer + brow + P('38,60 62,60 58,66 42,66', '#3b2418') + P('48,56 52,56 50,60', '#d9a97c') + mouth + extra;
   }
-  const face = (bot, expr) => '<svg viewBox="24 32 52 42" xmlns="http://www.w3.org/2000/svg">' + facePieces(bot, expr) + '</svg>';
-  function avatar(col, bot, expr) {
-    const hat = col, vest = col === '#ff6a4d' ? '#c9432b' : '#2f9e8f';
-    return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' +
-      P('6,100 12,78 34,70 66,70 88,78 94,100', '#f6f0e2') + P('34,70 50,100 66,70 58,66 42,66', vest) + P('66,70 94,100 70,100', 'rgba(0,0,0,.14)') +
-      P('44,70 50,74 56,70 56,80 50,76 44,80', '#fff') +
-      P('30,34 70,34 74,54 62,70 38,70 26,54', '#f3c9a0') + P('50,34 70,34 74,54 62,70 50,70', 'rgba(0,0,0,.08)') +
-      P('26,34 32,12 68,12 74,34', hat) + P('26,34 32,12 44,12 38,34', 'rgba(255,255,255,.25)') + P('18,34 82,34 78,42 22,42', vest) +
-      facePieces(bot, expr) + '</svg>';
+  const L = (pts, w) => '<polyline points="' + pts + '" fill="none" stroke="' + INK + '" stroke-width="' + (w || 3.6) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  const eyeAt = (c, x, y, e, sg) => {
+    const k = CH[c] || CH.pig, wr = c === 'octo' ? 9 : 7.6, pup = c === 'goat' ? P(x - 5 + ',' + (y - 1.5) + ' ' + (x + 5) + ',' + (y - 1.5) + ' ' + (x + 5) + ',' + (y + 1.5) + ' ' + (x - 5) + ',' + (y + 1.5), INK) : P(ng(x, y + 1, c === 'octo' ? 4.6 : 3.8, 8), INK);
+    const wh = c === 'goat' ? '#f3e08a' : '#fffdf5';
+    switch (e) {
+      case 'scared': return P(ng(x, y, wr + 2.6, 10), '#fffdf5') + P(ng(x, y, 2.4, 6), INK);
+      case 'hurt': return L((x - 6) + ',' + (y - 5) + ' ' + (x + 5) + ',' + y + ' ' + (x - 6) + ',' + (y + 5), 4);
+      case 'laugh': return L((x - 7) + ',' + (y + 3) + ' ' + x + ',' + (y - 5) + ' ' + (x + 7) + ',' + (y + 3), 4);
+      case 'dead': return L((x - 6) + ',' + (y - 6) + ' ' + (x + 6) + ',' + (y + 6), 4) + L((x + 6) + ',' + (y - 6) + ' ' + (x - 6) + ',' + (y + 6), 4);
+      case 'smug': return P(ng(x, y, wr, 10), wh) + pup + P((x - wr - 1) + ',' + (y - wr - 1) + ' ' + (x + wr + 1) + ',' + (y - wr - 1) + ' ' + (x + wr + 1) + ',' + (y - 1) + ' ' + (x - wr - 1) + ',' + (y - 1), k.skin) + L((x - 8) + ',' + (y - 1) + ' ' + (x + 8) + ',' + (y - 1), 3);
+      default: return P(ng(x, y, wr, 10), wh) + pup;
+    }
   }
+  // eyes + brows + mouth only (transparent) — the 3D heads wear this as a texture on their front plane
+  function faceParts(c, e) {
+    const k = CH[c] || CH.pig, ey = k.ey, ex = k.ex, my = k.my; e = e || 'neutral'; let o = '';
+    o += eyeAt(c, 50 - ex, ey, e) + eyeAt(c, 50 + ex, ey, e);
+    const by = ey - 12; // brows
+    if (e === 'smug') o += L((50 - ex - 8) + ',' + (by + 1) + ' ' + (50 - ex + 7) + ',' + (by - 3)) + L((50 + ex - 7) + ',' + (by - 3) + ' ' + (50 + ex + 8) + ',' + (by + 1));
+    else if (e === 'scared' || e === 'hurt') o += L((50 - ex - 7) + ',' + (by + 2) + ' ' + (50 - ex + 7) + ',' + (by - 3)) + L((50 + ex - 7) + ',' + (by - 3) + ' ' + (50 + ex + 7) + ',' + (by + 2));
+    else o += L((50 - ex - 7) + ',' + by + ' ' + (50 - ex + 7) + ',' + (by - 1.5), 3) + L((50 + ex - 7) + ',' + (by - 1.5) + ' ' + (50 + ex + 7) + ',' + by, 3);
+    if (e === 'laugh') o += P((50 - 9) + ',' + my + ' ' + (50 + 9) + ',' + my + ' ' + (50 + 6) + ',' + (my + 9) + ' ' + (50 - 6) + ',' + (my + 9), '#5a1220') + P(ng(50, my + 8, 3.4, 6), '#ff6a7d');
+    else if (e === 'scared') o += P(ng(50, my + 3, 5, 8), '#5a1220');
+    else if (e === 'hurt') o += L((50 - 8) + ',' + (my + 4) + ' ' + (50 - 3) + ',' + my + ' ' + (50 + 3) + ',' + (my + 4) + ' ' + (50 + 8) + ',' + my);
+    else if (e === 'dead') o += L((50 - 8) + ',' + my + ' ' + (50 + 8) + ',' + my) + P((50 + 2) + ',' + my + ' ' + (50 + 9) + ',' + my + ' ' + (50 + 6) + ',' + (my + 10), '#ff6a7d');
+    else if (e === 'smug') o += L((50 - 9) + ',' + (my + 2) + ' ' + (50 + 6) + ',' + (my + 2) + ' ' + (50 + 11) + ',' + (my - 3));
+    else o += L((50 - 7) + ',' + my + ' ' + (50 + 7) + ',' + my);
+    return o;
+  }
+  // brush strokes laid over a flat shape: a few translucent streaks following the same direction
+  function strokes(seed, n) { let s = seed || 3; const r = () => { s = (s * 16807) % 2147483647; return s / 2147483647; }; let o = ''; for (let i = 0; i < n; i++) { const x = 8 + r() * 70, y = 10 + r() * 80, l = 14 + r() * 30; o += '<polygon points="' + x + ',' + y + ' ' + (x + l) + ',' + (y - 3 - r() * 4) + ' ' + (x + l) + ',' + (y - 1) + ' ' + x + ',' + (y + 2.5) + '" fill="' + (r() > .5 ? 'rgba(255,255,255,.22)' : 'rgba(40,10,0,.14)') + '"/>'; } return o; }
+  const face = (c, e) => '<svg viewBox="0 0 100 104" xmlns="http://www.w3.org/2000/svg">' + defs() + '<g filter="url(#rough)">' + body(c) + strokes((CH[c] || CH.pig).skin.length * 7 + c.length, 9) + '</g>' + faceParts(c, e) + '</svg>';
+  const faceOnly = (c, e) => '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">' + defs() + faceParts(c, e) + '</svg>';
+
+  const CHARS = Object.keys(CH), EXPR = ['smug', 'laugh', 'scared', 'angry', 'hurt'];
+  // every player wears a bartender's hat in their seat colour (the same hat sits on the 3D animals)
+  const hat = col => P('12,30 88,30 82,40 18,40', col) + P('12,30 88,30 86,33 14,33', 'rgba(255,255,255,.28)') + P('30,32 33,6 67,6 70,32', col) + P('30,32 33,6 44,6 41,32', 'rgba(255,255,255,.22)') + P('30,32 70,32 69,24 31,24', 'rgba(0,0,0,.28)');
+  const avatar = (c, e, ring, col) => '<svg viewBox="0 0 100 104" xmlns="http://www.w3.org/2000/svg">' + defs() + (ring ? '<polygon points="' + ng(50, 52, 50, 10) + '" fill="' + ring + '" opacity=".35"/>' : '') + '<g filter="url(#rough)">' + body(c) + strokes((CH[c] || CH.pig).skin.length * 7 + c.length, 9) + (col ? hat(col) : '') + '</g>' + faceParts(c, e) + '</svg>';
+  const faceUrl = (c, e) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(faceOnly(c, e).replace('<svg ', '<svg width="256" height="256" '));
 
   // ---------------------------------------------------------------- logo + drum ----
   function logo() {
@@ -116,5 +155,5 @@ const Art = (function () {
   const BARREL = P('160,106 200,106 197,52 163,52', '#aebfc6') + P('180,106 200,106 197,52 180,52', 'rgba(0,0,0,.14)') + P('160,106 168,106 166,52 163,52', 'rgba(255,255,255,.3)') + P('157,52 203,52 201,38 159,38', '#3b4f58') + P('176,38 184,38 180,26', '#ff6a4d');
   const FLASH = '<g transform="translate(0,40)">' + P('180,-30 192,-2 222,-14 200,10 236,24 198,30 210,60 180,38 150,60 162,30 124,24 160,10 138,-14 168,-2', '#ffd36a') + P('180,-10 188,6 206,2 194,16 212,26 190,26 180,44 170,26 148,26 166,16 154,2 172,6', '#fff6d6') + '</g>';
 
-  return { face, EXPR, sprite, icon, scene, avatar, logo, drumSlots, drumFrame, BARREL, FLASH, ITEMS: ['loupe', 'phone', 'beer', 'lemon', 'cuffs', 'spin', 'coin', 'whisky', 'tray'] };
+  return { face, faceOnly, faceUrl, CH, CHARS, EXPR, hat, sprite, icon, scene, avatar, logo, drumSlots, drumFrame, BARREL, FLASH, ITEMS: ['loupe', 'phone', 'beer', 'lemon', 'cuffs', 'spin', 'coin', 'whisky', 'tray'] };
 })();

@@ -8,8 +8,9 @@ const Rou = (function () {
   'use strict';
   const ITEMS = ['loupe', 'phone', 'beer', 'lemon', 'cuffs', 'spin', 'coin', 'whisky', 'tray'];
   const WEIGHT = { loupe: 5, phone: 3, beer: 4, lemon: 3, cuffs: 3, spin: 3, coin: 3, whisky: 4, tray: 3 };
-  const TABLE_MAX = 8;
-  const DEFAULTS = { target: 2, perTurn: 2, bot: 'normal' };
+  const TABLE_MAX = 8, TALKV = 4;      // TALKV = how many wordings each claim has in i18n (talk.L / talk.B)
+  const DEFAULTS = { target: 2, perTurn: 2, bot: 'normal', talk: true };
+  const CHARS = ['pig', 'fox', 'dog', 'goat', 'octo', 'penguin', 'hawk', 'turtle'];
   const BOT_LEVELS = ['easy', 'normal', 'hard'];
 
   const clampI = (v, a, b, d) => { v = parseInt(v, 10); return isFinite(v) ? Math.min(b, Math.max(a, v)) : d; };
@@ -17,6 +18,7 @@ const Rou = (function () {
     s = Object.assign({}, DEFAULTS, s || {});
     s.target = clampI(s.target, 1, 3, 2); s.perTurn = clampI(s.perTurn, 1, 3, 2);
     if (BOT_LEVELS.indexOf(s.bot) < 0) s.bot = 'normal';
+    s.talk = !(s.talk === false || s.talk === 'false' || s.talk === 0 || s.talk === '0');
     return s;
   }
 
@@ -31,9 +33,9 @@ const Rou = (function () {
 
   function emit(g, e) { g.ev.push(e); g.log.push(e); if (g.log.length > 60) g.log.shift(); }
 
-  function newGame(names, settings, seed) {
+  function newGame(names, settings, seed, chars) {
     const g = {
-      v: 1, id: Math.random().toString(36).slice(2, 9), seq: 0, rs: ((seed == null ? Math.random() * 4294967296 : seed) >>> 0) || 1, opts: normSettings(settings), names: [names[0] || 'A', names[1] || 'B'],
+      v: 1, id: Math.random().toString(36).slice(2, 9), seq: 0, rs: ((seed == null ? Math.random() * 4294967296 : seed) >>> 0) || 1, opts: normSettings(settings), names: [names[0] || 'A', names[1] || 'B'], chars: [CHARS.includes(chars && chars[0]) ? chars[0] : 'fox', CHARS.includes(chars && chars[1]) ? chars[1] : 'pig'], talked: false,
       phase: 'play', round: 0, wins: [0, 0], lw: 0, turn: 0, hp: [0, 0], maxHp: 0, shield: [false, false], skip: [false, false], dbl: false, used: 0,
       n: 0, ch: [], spent: [], pub: { l: 0, b: 0 }, table: [], nid: 1, ev: [], log: [], winner: null
     };
@@ -131,15 +133,19 @@ const Rou = (function () {
   // returns true if the action was legal and has been applied (mutates g)
   function apply(g, p, a) {
     if (!g || !a) return false;
-    if (a.t === 'next') { if (g.phase !== 'between') return false; g.ev = []; g.seq++; startRound(g, 1 - g.lw); return true; }
+    if (a.t === 'next') { if (g.phase !== 'between') return false; g.ev = []; g.seq++; g.talked = false; startRound(g, 1 - g.lw); return true; }
+    if (a.t === 'talk') {          // table talk: the player who is NOT on turn says what the current shell is (true or not). Never changes whose turn it is.
+      if (g.phase !== 'play' || g.turn === p || g.talked || !g.opts.talk || !g.ch.length || (a.c !== 'L' && a.c !== 'B')) return false;
+      g.ev = []; g.seq++; g.talked = true; emit(g, { t: 'talk', by: p, c: a.c, v: clampI(a.v, 0, TALKV - 1, 0) }); return true;
+    }
     if (g.phase !== 'play' || g.turn !== p) return false;
     if (a.t === 'fire') {
       if (a.at !== 'self' && a.at !== 'opp') return false;
-      g.ev = []; g.seq++; fire(g, p, a.at); return true;
+      g.ev = []; g.seq++; g.talked = false; fire(g, p, a.at); return true;
     }
     if (a.t === 'item') {
       const it = g.table.find(x => x.id === a.id); if (!canUse(g, p, it)) return false;
-      g.ev = []; g.seq++; useItem(g, p, it); return true;
+      g.ev = []; g.seq++; g.talked = false; useItem(g, p, it); return true;
     }
     return false;
   }
@@ -183,6 +189,44 @@ const Rou = (function () {
     return { t: 'fire', at };
   }
 
-  return { ITEMS, TABLE_MAX, DEFAULTS, BOT_LEVELS, normSettings, newGame, apply, canUse, counts, bot, pLive };
+  // ---------------------------------------------------------------- bot table talk ----
+  // The bot speaks while the OTHER player is deciding, and says what the shell in the firing chamber is. It only ever uses what it really knows
+  // (its own peek, or the public live/blank counts) - never the hidden order. Knowing the shell, the best play is usually to lie (claim live when it is blank so the
+  // player wastes it on the bot, claim blank when it is live so the player shoots themselves), so hard mixes in the truth to stay unreadable.
+  function botTalk(g, p, level) {
+    if (!g || !g.opts.talk || g.phase !== 'play' || g.turn === p || g.talked || !g.ch.length) return null;
+    level = level || g.opts.bot;
+    const speak = level === 'easy' ? .35 : level === 'normal' ? .5 : .6;
+    if (Math.random() > speak) return null;
+    const known = g.ch[0].s[p] ? g.ch[0].k : null, opp = k => k === 'L' ? 'B' : 'L'; let c;
+    if (known) {
+      const lie = level === 'easy' ? .5 : level === 'normal' ? .75 : .6;
+      c = Math.random() < lie ? opp(known) : known;
+    } else {
+      const pl = pLive(g, p);
+      if (level === 'easy') c = Math.random() < .5 ? 'L' : 'B';
+      else { if (Math.random() < (level === 'normal' ? .45 : .3)) return null; const likely = pl >= .5 ? 'L' : 'B'; c = Math.random() < (level === 'normal' ? .5 : .65) ? opp(likely) : likely; }
+    }
+    return { t: 'talk', c, v: Math.floor(Math.random() * TALKV) };
+  }
+
+  // ---------------------------------------------------------------- hidden information (sealed online rooms) ----
+  // pub(g): what everybody may see - no shell kinds, no seed, no private peeks. mine(g, p): what ONLY player p knows. merge(): the state player p's screen works with.
+  function pub(g) {
+    const o = JSON.parse(JSON.stringify(g)); o.rs = 0;
+    o.ch = o.ch.map(() => ({ k: '?', s: [false, false] }));
+    const strip = e => { delete e.peek; };
+    o.ev.forEach(strip); o.log.forEach(strip);
+    return o;
+  }
+  function mine(g, p) { return { id: g.id, seq: g.seq, pk: g.ch.map(c => c.s[p] ? c.k : null), ev: g.ev.map(e => e.by === p && e.peek ? e.peek : null) }; }
+  function merge(pg, m, p) {
+    const o = Object.assign({}, pg);
+    o.ch = pg.ch.map((c, j) => { const k = m && m.pk && m.pk[j], s = [false, false]; if (k) s[p] = true; return { k: k || '?', s }; });
+    o.ev = pg.ev.map((e, i) => m && m.ev && m.ev[i] ? Object.assign({}, e, { peek: m.ev[i] }) : e);
+    return o;
+  }
+
+  return { ITEMS, TABLE_MAX, TALKV, DEFAULTS, BOT_LEVELS, CHARS, normSettings, newGame, apply, canUse, counts, bot, botTalk, pLive, pub, mine, merge };
 })();
 if (typeof module !== 'undefined') module.exports = Rou;

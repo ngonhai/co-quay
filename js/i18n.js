@@ -1,6 +1,19 @@
 // i18n.js — vi (default) + en. t('key', {x:1}) replaces {x}. Add a language: copy the `en` block.
 const I18N = {
   vi: {
+    addBot: '+ Thêm bot', rmBot: 'Xóa', pickChar: 'Chọn nhân vật', chars: { pig: 'Lợn', fox: 'Cáo', dog: 'Chó', goat: 'M10', octo: 'Bạch tuộc', penguin: 'Cánh cụt', hawk: 'Diều hâu', turtle: 'Oogway' }, botTag: 'máy', seatsFull: 'Bàn đã đủ chỗ.',
+    botNames: ['Messi', 'Ronaldo', 'Benzema', 'Modric', 'Bale', 'Ozil', 'DoMixi'], sealedOn: '', sealedOff: '',
+    rTalk: 'Bot nói chuyện', rTalkD: 'Bot lên tiếng (bong bóng chat trên đầu) khi bạn đang cân nhắc, nói viên ở buồng bắn là thật hay lép. Có thể nói thật, có thể nói dối để dắt mũi bạn. Mức Dễ nói bừa, mức Khó nói khó đoán nhất.',
+    on: 'Bật', offS: 'Tắt', rShared: 'Số hiệp thắng',
+    talk: {
+      L: ['Viên này đạn thật đấy, cẩn thận.', 'Nghe tao đi, đạn thật đó.', 'Tao ngửi thấy mùi thuốc súng rồi.', 'Bắn thử đi, đạn thật cho coi.'],
+      B: ['Viên này lép rồi, bắn đi.', 'Yên tâm, đạn lép mà.', 'Tao nghe tiếng cạch rồi, lép đó.', 'Bắn mình đi, có sao đâu.']
+    },
+    leaveQ: 'Rời bàn?', leaveQPlaying: 'Ván đang diễn ra. Bạn chắc chắn muốn rời bàn chứ?', leaveQWaiting: 'Bạn sẽ rời phòng này.', leaveStay: 'Ở lại', leaveYes: 'Rời đi',
+    chatPh: 'Chat… (Tab: gợi ý)', chatSend: 'Gửi', chatSpec: 'khán giả', chatTitle: 'Chat bàn',
+    chatSug: ['Hmm… tao thấy lép.', 'Đạn thật đó, đừng liều.', 'Bắn đi, đừng run.', 'Dùng kính lúp đi chứ.', 'Ván này tao ăn chắc.', 'Haha, hên thôi.', 'GG, chơi hay đó.', 'Còng tay tao hả? Dám lắm.', 'Mặt mày lộ hết rồi.', 'Tới lượt mày rồi, nghĩ kỹ nha.'],
+    signs: [['ROULETTE', '#ff8a6a'], ['QUÁN ĐẠN LÉP', '#ffd36a'], ['MỘT VIÊN THÔI\nCHỌN CHO KỸ', '#e3b36f'], ['CẠCH... HOẶC ĐOÀNG', '#ff6a6a'], ['HÊN XUI CŨNG LÀ MỘT KỸ NĂNG', '#c9a7ff'], ['BIA LẠNH, ĐẠN NÓNG', '#7fd1ff'], ['THẬT HAY LÉP?\nĐOÁN ĐI!', '#ffb547'], ['NÍN THỞ THÊM 1 GIÂY NỮA', '#8ee3d0'], ['ĐỪNG TIN LỜI NGƯỜI CHƠI CÙNG', '#ff9f5a']],
+    emoteSlam: 'Đập bàn', gestHint: 'Bấm đúp vào bàn để đập bàn · bấm vào đối thủ để chỉ tay',
     title: 'Roulette', sub: 'Một ổ đạn, hai người, vài món đồ trên bàn. Ai cũng được dùng.',
     name: 'Tên của bạn', namePh: 'Khách quen', you: 'Bạn', bot: 'Chủ quán',
     create: 'Tạo phòng', join: 'Vào phòng', offline: 'Chơi với máy', code: 'Mã phòng (5 ký tự)', createBtn: 'Tạo phòng mới', joinBtn: 'Vào phòng', startOff: 'Ngồi xuống bàn',
@@ -24,7 +37,8 @@ const I18N = {
       'Mỗi lượt: bắn đối thủ (đạn thật = −1 máu, hết lượt) hoặc bắn chính mình (lép = được bắn tiếp, thật = mất máu và hết lượt).',
       'Vật phẩm đặt giữa bàn là của chung: ai đến lượt thì dùng được, mỗi lượt tối đa vài món. Hết đạn thì nạp lại và thêm vật phẩm.',
       'Về 0 máu là thua hiệp. Thắng đủ số hiệp là thắng trận.',
-      'Chạm vật phẩm để đọc công dụng; bấm đúp để dùng nhanh. Phím: 1 = bắn đối thủ, 2 = bắn mình.'
+      'Chạm vật phẩm để đọc công dụng; bấm đúp để dùng nhanh. Phím: 1 = bắn đối thủ, 2 = bắn mình.',
+      'Bot (nếu bật "Bot nói chuyện") sẽ nói viên đạn là thật hay lép — có khi nói thật, có khi nói dối. Chat bàn ở dưới nhật ký (phòng online).'
     ],
     items: {
       loupe: ['Kính lúp', 'Xem riêng bạn: viên đạn đang ở buồng bắn là thật hay lép.'],
@@ -40,6 +54,19 @@ const I18N = {
     exit: 'Thoát', spec: 'Khán giả', camSide: 'Cạnh bàn', camP: 'Góc nhìn {n}', aimHint: 'Chọn đối thủ để bắn họ · chọn lại khẩu súng để tự bắn', notTurn: 'Chưa đến lượt bạn', d3: '3D', d2: '2D', no3dLoad: '3D failed to load: js/rou-3d.js or js/lib/three.module.min.js is missing on the host. Upload the whole js/lib folder and hard-refresh (Ctrl+F5).', no3dFile: '3D needs a web server (http/https), not a file:// page.', no3dGL: 'WebGL could not start: ', no3dLoad: '3D không tải được: thiếu js/rou-3d.js hoặc js/lib/three.module.min.js trên host. Hãy tải lên cả thư mục js/lib rồi bấm Ctrl+F5.', no3dFile: '3D cần chạy qua máy chủ web (http/https), không mở trực tiếp file.', no3dGL: '3D không khởi tạo được WebGL: ', specNote: 'Bạn đang xem', music: 'Nhạc nền', emote: 'Biểu cảm', emotes: { smug: 'Đắc ý', laugh: 'Cười', scared: 'Sợ', angry: 'Giận', hurt: 'Đau' }, confirmLeave: 'Rời ván đang chơi?', mute: 'Âm thanh', theyOff: 'Đối thủ đang mất kết nối'
   },
   en: {
+    addBot: '+ Add bot', rmBot: 'Remove', pickChar: 'Pick your animal', chars: { pig: 'Pig', fox: 'Fox', dog: 'Dog', goat: 'Goat', octo: 'Octopus', penguin: 'Penguin', hawk: 'Hawk', turtle: 'Turtle' }, botTag: 'bot', seatsFull: 'The table is full.',
+    botNames: ['Messi', 'Ronaldo', 'Benzema', 'Modric', 'Bale', 'Ozil', 'DoMixi'], sealedOn: '', sealedOff: '',
+    rTalk: 'Bot table talk', rTalkD: 'The bot speaks (a chat bubble over its head) while you are deciding and says whether the firing-chamber shell is live or blank. It may be true, it may be a lie to steer you. Easy talks at random, Hard is the hardest to read.',
+    on: 'On', offS: 'Off', rShared: 'Round wins needed',
+    talk: {
+      L: ['This one is live, careful.', 'Trust me, it is live.', 'I can smell the gunpowder.', 'Go on, shoot. It is live.'],
+      B: ['This one is blank, shoot.', 'Relax, it is blank.', 'I heard the click, blank.', 'Shoot yourself, nothing will happen.']
+    },
+    leaveQ: 'Leave the table?', leaveQPlaying: 'A game is in progress. Are you sure you want to leave the table?', leaveQWaiting: 'You will leave this room.', leaveStay: 'Stay', leaveYes: 'Leave',
+    chatPh: 'Chat… (Tab: suggestions)', chatSend: 'Send', chatSpec: 'spectator', chatTitle: 'Table chat',
+    chatSug: ['Hmm… I say blank.', 'It is live, do not gamble.', 'Shoot, do not shake.', 'Use the loupe already.', 'This round is mine.', 'Ha, pure luck.', 'GG, nicely played.', 'Handcuffs on me? Bold.', 'Your poker face is gone.', 'Your turn now, think hard.'],
+    signs: [['ROULETTE', '#ff8a6a'], ['BLANK ROUND BAR', '#ffd36a'], ['ONE SHELL AT A TIME\nCHOOSE WISELY', '#e3b36f'], ['CLICK... OR BANG', '#ff6a6a'], ['LUCK IS ALSO A SKILL', '#c9a7ff'], ['COLD BEER, HOT LEAD', '#7fd1ff'], ['LIVE OR BLANK?\nGUESS!', '#ffb547'], ['HOLD YOUR BREATH ONE MORE SECOND', '#8ee3d0'], ['DO NOT TRUST YOUR OPPONENT', '#ff9f5a']],
+    emoteSlam: 'Slam table', gestHint: 'Double-click the table to slam it · click the opponent to point',
     title: 'Roulette', sub: 'One cylinder, two players, a few items on the table. Anyone may use them.',
     name: 'Your name', namePh: 'Regular', you: 'You', bot: 'Barkeep',
     create: 'Create room', join: 'Join room', offline: 'Play vs bot', code: 'Room code (5 chars)', createBtn: 'Create new room', joinBtn: 'Join room', startOff: 'Sit down',
@@ -63,7 +90,8 @@ const I18N = {
       'On your turn: shoot the opponent (live = −1 HP, turn ends) or shoot yourself (blank = shoot again, live = lose HP and the turn ends).',
       'Items in the middle of the table are shared: whoever’s turn it is may use them, up to a few per turn. When the cylinder runs dry it is reloaded and more items appear.',
       '0 HP loses the round. Win enough rounds to win the match.',
-      'Tap an item to read it; double-click to use it. Keys: 1 = shoot opponent, 2 = shoot yourself.'
+      'Tap an item to read it; double-click to use it. Keys: 1 = shoot opponent, 2 = shoot yourself.',
+      'A bot (when "Bot table talk" is on) tells you whether the shell is live or blank - sometimes truthfully, sometimes not. Table chat sits under the log (online rooms).'
     ],
     items: {
       loupe: ['Loupe', 'Privately see whether the shell in the firing chamber is live or blank.'],
