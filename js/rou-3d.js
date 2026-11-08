@@ -20,7 +20,7 @@ const R3D = (function () {
   let n = 0, game = null, me = 0;
   const view = { mode: 'pov', seat: 0, parX: 0, parY: 0 }, camPos = V(0, 1.3, 1.2), camLook = V(0, .8, 0), cine = { dolly: 0, fov: 0, shake: 0, pitch: 0, roll: 0, k: 0, focus: V(0, 1, 0) };
   const players = [null, null], items = new Map(); let lampSpot, flashLight, tableMesh, glow, glowA = 0, fxs = [], setSign = () => {}, lampBase = 20, selRing, hoverRing, selId = null, hoverId = null, aimMode = false, drumSig = '', gunObj = null, curShot = null;
-  const shieldMeshes = [null, null], cuffMeshes = [null, null], cb = { pick: () => {}, hover: () => {} };
+  let dbgCamV = null, dbgFast = false; const shieldMeshes = [null, null], cuffMeshes = [null, null], cb = { pick: () => {}, hover: () => {} };
 
   // ---------------------------------------------------------------- tweens ----
   const tws = [];
@@ -285,11 +285,6 @@ const R3D = (function () {
     if (anim) { m.scale.setScalar(2.4); tween(160, u => { m.scale.setScalar(2.4 - .7 * u); }, eo); cine.shake = Math.max(cine.shake, .5); cineTo('shake', 0, 260); }
   }
   function dropCuffs(t) { const m = cuffMeshes[t]; if (!m) return; cuffMeshes[t] = null; const y0 = m.position.y; tween(380, u => { m.position.y = y0 - u * .35; m.rotation.z = u * 1.2; m.scale.setScalar(1.7 * (1 - u * .6)); }, eio).then(() => scene.remove(m)); }
-  async function slideCuffs(by, r, arm) {
-    const t = 1 - by, g = r.group; await moveHand(arm, wristFor(by, sw(by, 0, TY + .14, .7)), 380); await gripTo(arm, 0, 90); r.attached = null;
-    const a = g.position.clone(), b = cuffSpot(t).clone(); await tween(520, u => { g.position.lerpVectors(a, b, u); g.position.y = TY + .012 + Math.sin(u * Math.PI) * .05; g.rotation.y += .2 * (1 - u); }, eio);
-    removeItem(r.id); placeCuffs(t, true); await wait(180);
-  }
   // ---- items ----
   const AMB = '#ffb547', GOLD = '#f0b43c', STEEL = '#8aa0aa';
   const lathe = (pts, m, seg) => { const o = new THREE.Mesh(new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), seg || 8), m); o.castShadow = true; return o; };
@@ -306,11 +301,11 @@ const R3D = (function () {
     tray() { const g = new THREE.Group(); cyl(.062, .062, .012, 8, M('#7e4526'), 0, .006, 0, g); cyl(.05, .05, .006, 8, M('#b87142'), 0, .013, 0, g); return g; }
   };
   function addItem(it, slotIdx, drop) {
-    const g = inkAll(ITEMB[it.k](), 1.12); g.userData = { itemId: it.id, kind: it.k }; g.traverse(o => { o.userData.itemId = it.id; });
+    const g = inkAll(ITEMB[it.k](), 1.12); const sc0 = it.k === 'tray' ? 1.8 : 1; g.scale.setScalar(sc0); g.userData = { itemId: it.id, kind: it.k }; g.traverse(o => { o.userData.itemId = it.id; });
     const p = SLOTS[slotIdx].clone(); g.position.copy(p); g.rotation.y = (it.id * 1.7) % 6.28; scene.add(g);
-    const rec = { id: it.id, kind: it.k, group: g, slot: slotIdx, base: p, attached: null, loff: V(0, -.05, -.05), lift: 0, alive: true };
+    const rec = { id: it.id, kind: it.k, group: g, slot: slotIdx, base: p, attached: null, lift: 0, alive: true, blend: 1 };
     items.set(it.id, rec);
-    if (drop) { g.position.y = p.y + .6; g.scale.setScalar(.7); tween(520, u => { g.position.y = p.y + .6 * (1 - u); g.scale.setScalar(.7 + .3 * u); }, ebo); }
+    if (drop) { g.position.y = p.y + .6; g.scale.setScalar(.7 * sc0); tween(520, u => { g.position.y = p.y + .6 * (1 - u); g.scale.setScalar((.7 + .3 * u) * sc0); }, ebo); }
     return rec;
   }
   function removeItem(id) { const r = items.get(id); if (!r) return; r.alive = false; scene.remove(r.group); items.delete(id); if (selId === id) { selId = null; selRing.visible = false; } }
@@ -333,12 +328,13 @@ const R3D = (function () {
     for (let i = fxs.length - 1; i >= 0; i--) {
       const f = fxs[i];
       if (f.k === 'drop') { f.v.y -= 6.5 * dt; f.m.position.addScaledVector(f.v, dt); const p = f.m.position; if (p.y <= TY + .008) { scene.remove(f.m); if (Math.abs(p.x) < .83 && Math.abs(p.z) < .5) stainAt(p.x, p.z, f.big); fxs.splice(i, 1); } else if (p.y < 0) { scene.remove(f.m); fxs.splice(i, 1); } }
+      else if (f.k === 'shell') { f.t += dt; f.v.y -= 7.5 * dt; f.m.position.addScaledVector(f.v, dt); f.m.rotation.x += f.w.x * dt; f.m.rotation.z += f.w.z * dt; if (f.m.position.y <= TY + .012 && f.v.y < 0) { f.m.position.y = TY + .012; f.hits++; f.v.y = -f.v.y * .32; f.v.x *= .55; f.v.z *= .55; f.w.multiplyScalar(.5); if (f.hits > 1) { f.v.set(0, 0, 0); f.w.set(0, 0, 0); f.m.rotation.x = Math.PI / 2; } } if (f.t > 2.2) { f.m.scale.setScalar(Math.max(0, 1 - (f.t - 2.2) / .5)); } if (f.t > 2.7) { scene.remove(f.m); fxs.splice(i, 1); } }
       else { f.t += dt; const m = f.m; m.scale.setScalar(f.t < .15 ? .3 + f.t / .15 * .7 : 1); const fade = f.life - 2.4; if (f.t > fade) m.material.opacity = Math.max(0, .92 * (1 - (f.t - fade) / 2.4)); if (f.t >= f.life) { scene.remove(m); m.material.dispose(); fxs.splice(i, 1); } }
     }
   }
   function live(m, e) {
     if (!ok) return; setCounter(m.pub.l, m.pub.b);
-    if (e && e.blocked && shieldMeshes[e.at]) { const sm = shieldMeshes[e.at]; shieldMeshes[e.at] = null; tween(320, u => { sm.scale.setScalar(2.2 * (1 + u * .5)); sm.position.y += .004; sm.rotation.z += .2; }, lin).then(() => scene.remove(sm)); }
+    if (e && e.blocked && shieldMeshes[e.at]) { const sm = shieldMeshes[e.at]; shieldMeshes[e.at] = null; tween(320, u => { sm.scale.setScalar(1.8 * (1 + u * .5)); sm.position.y += .004; sm.rotation.z += .2; }, lin).then(() => scene.remove(sm)); }
     if (e && e.k === 'L' && !e.blocked) bloodTable(e.at);
   }
 
@@ -361,7 +357,7 @@ const R3D = (function () {
     drumMarks(g, vs); const step = Math.PI * 2 / g.n, target = g.spent.length * step, d = gunObj.userData.drum;
     if (gunObj.userData.n !== g.n || instant) { d.rotation.z = target; } else if (Math.abs(d.rotation.z - target) > .001) { const a = d.rotation.z; tween(420, u => { d.rotation.z = a + (target - a) * u; }, ebo); }
     gunObj.userData.n = g.n;
-    [0, 1].forEach(s => { const has = g.shield[s]; if (has && !shieldMeshes[s]) { const m = inkAll(ITEMB.tray(), 1.1); m.scale.setScalar(2.2); m.position.copy(sw(s, 0, TY + .14, .72)); m.rotation.x = Math.PI / 2; m.rotation.y = s ? Math.PI : 0; scene.add(m); shieldMeshes[s] = m; } else if (!has && shieldMeshes[s]) { scene.remove(shieldMeshes[s]); shieldMeshes[s] = null; } });
+    [0, 1].forEach(s => { const has = g.shield[s]; if (has && !shieldMeshes[s]) { const m = inkAll(ITEMB.tray(), 1.1); m.scale.setScalar(1.8); m.position.copy(sw(s, 0, TY + .14, .72)); m.rotation.x = Math.PI / 2; m.rotation.y = s ? Math.PI : 0; scene.add(m); shieldMeshes[s] = m; } else if (!has && shieldMeshes[s]) { scene.remove(shieldMeshes[s]); shieldMeshes[s] = null; } });
     setCounter(g.pub.l, g.pub.b); [0, 1].forEach(t => { if (g.skip[t] && !cuffMeshes[t]) placeCuffs(t, false); else if (!g.skip[t] && cuffMeshes[t]) dropCuffs(t); });
     [0, 1].forEach(s => { const P = players[s]; if (P && P.dead && g.hp[s] > 0 && g.phase !== 'between') revive(s, true); });
     if (!(opt && opt.keepSel)) { if (selId != null && !items.has(selId)) setSelected(null); }
@@ -378,6 +374,7 @@ const R3D = (function () {
     const s = view.seat, p = sw(s, 0, 1.5, .04), l = sw(s, 0, 1.3, 1.15); return { pos: p, look: l, fov: 68 };
   }
   function updateCamera(dt, t) {
+    if (dbgCamV) { cam.position.copy(dbgCamV.pos); cam.lookAt(dbgCamV.look); if (cam.fov !== dbgCamV.fov) { cam.fov = dbgCamV.fov; cam.updateProjectionMatrix(); } return; }
     const T = camTarget(), k = 1 - Math.exp(-dt * 3.2);
     const pos = T.pos.clone(), look = T.look.clone();
     if (view.mode === 'pov') {                                   // breathing + mouse parallax + cinematic dolly
@@ -439,22 +436,146 @@ const R3D = (function () {
   }
 
   // ---------------------------------------------------------------- items in hand ----
-  const wristFor = (by, palm) => palm.clone().addScaledVector(SEAT[by].dir, -.05);       // the wrist sits a little behind the palm
-  async function useItem(by, kind, id) {
-    if (!ok) return; const r = items.get(id); const P = players[by]; if (!r || !P) { await wait(500); return; }
-    const side = (r.group.position.clone().sub(SEAT[by].pos).dot(SEAT[by].right)) >= 0 ? 0 : 1, arm = P.arms[side], ip = r.group.position.clone();
-    await moveHand(arm, wristFor(by, ip.clone().add(V(0, .12, 0))), 400); await moveHand(arm, wristFor(by, ip.clone().add(V(0, .06, 0))), 150); await gripTo(arm, .8, 110);
-    r.attached = arm; r.lift = 0;
-    const hold = { loupe: sw(by, .06, 1.26, .42), phone: sw(by, side ? -.2 : .2, 1.28, .16), beer: sw(by, 0, 1.18, .3), whisky: sw(by, 0, 1.18, .3), lemon: sw(by, 0, 1.12, .38), cuffs: sw(by, 0, 1.0, .6), coin: sw(by, 0, 1.0, .5), spin: sw(by, 0, .96, .6), tray: sw(by, 0, .92, .68) }[kind] || sw(by, 0, 1.05, .5);
-    await moveHand(arm, hold, 520); const g = r.group, fz = by ? 1 : -1;
-    if (kind === 'beer' || kind === 'whisky') { await tween(520, u => { g.rotation.x = 1.1 * u * fz; }); await wait(240); await tween(300, u => { g.rotation.x = 1.1 * (1 - u) * fz; }); }
-    else if (kind === 'cuffs') { await tween(420, u => { g.rotation.z = Math.sin(u * 40) * .5 * (1 - u); }, lin); g.rotation.z = 0; await slideCuffs(by, r, arm); await gripTo(arm, 0, 120); await moveHand(arm, arm.rest, 420); return; }
-    else if (kind === 'coin') { await tween(750, u => { r.lift = Math.sin(u * Math.PI) * .32; g.rotation.x = u * Math.PI * 6; }, lin); g.rotation.x = 0; r.lift = 0; }
-    else if (kind === 'loupe' || kind === 'phone') { await tween(600, u => { g.rotation.y += .01; r.lift = Math.sin(u * Math.PI) * .02; }, lin); }
-    else if (kind === 'spin') { await tween(600, u => { g.rotation.y += .5 * (1 - u); }, lin); }
-    else { await tween(450, u => { g.rotation.y += .05; }, lin); }
-    const sc = g.scale.x; await tween(260, u => { g.scale.setScalar(sc * (1 - u)); }, eo); r.attached = null; removeItem(id);
-    await gripTo(arm, 0, 120); await moveHand(arm, arm.rest, 420);
+  // Every item is used the way a person would: the hand comes in over the item in an arc, the wrist turns to the right grip (thumb up round a glass, palm down on a coin, fingers on a handle),
+  // the fingers close, the item lifts; then it does its job (the loupe goes over the cylinder, the phone to the ear, the beer is drunk and the shell pops out...) and the hand goes home.
+  // Item space: origin = where it stands on the table. cm = the item point the hand holds; off = that point in hand space (wrist origin, fingers -Z, palm -Y).
+  const ICFG = {
+    loupe:  { mode: 'full', lq: new THREE.Quaternion(), cm: V(0, .012, .085), off: V(0, -.032, -.05), grip: .55 },
+    phone:  { mode: 'full', lq: rotQ(UP, Math.PI / 2), cm: V(0, .026, 0), off: V(0, -.05, -.05), grip: .8 },
+    beer:   { mode: 'pos', side: true, cm: V(0, .05, 0), off: V(0, -.066, -.05), grip: .6 },
+    whisky: { mode: 'pos', side: true, cm: V(0, .045, 0), off: V(0, -.062, -.05), grip: .55 },
+    lemon:  { mode: 'pos', cm: V(0, .036, 0), off: V(0, -.052, -.05), grip: .85 },
+    cuffs:  { mode: 'pos', cm: V(0, .012, 0), off: V(0, -.03, -.05), grip: .75 },
+    spin:   { mode: 'pos', cm: V(0, .03, 0), off: V(0, -.04, -.078), grip: .5 },
+    coin:   { mode: 'pos', cm: V(0, .005, 0), off: V(0, -.036, -.078), grip: .45 },
+    tray:   { mode: 'pos', cm: V(0, .008, .062), off: V(0, -.04, -.05), grip: .5, scaled: true }
+  };
+  const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion();
+  function qHand(f, roll) {              // hand orientation: fingers along f, palm down, then rolled about the fingers
+    const zh = f.clone().negate(), yh = UP.clone().addScaledVector(zh, -UP.dot(zh)); if (yh.lengthSq() < 1e-4) yh.set(0, 0, 1); yh.normalize();
+    _bm.makeBasis(yh.clone().cross(zh), yh, zh); const q = new THREE.Quaternion().setFromRotationMatrix(_bm); if (roll) q.multiply(rotQ(V(0, 0, 1), roll)); return q;
+  }
+  async function orient(arm, q, ms) { const q0 = arm.hand.quaternion.clone(); arm.lockQ = q0.clone(); arm.lockW = 1; await tween(ms, u => { arm.lockQ.copy(q0).slerp(q, u); }, eio); }
+  function relax(arm, ms) { if (!arm.lockQ) return Promise.resolve(); const q = arm.lockQ.clone(); arm.lockQ = q; return tween(ms, u => { arm.lockW = 1 - u; }, eio).then(() => { arm.lockQ = null; arm.lockW = 1; }); }
+  const arcTo = (arm, dest, ms, lift, ease) => { const a = arm.pos.clone(), b = dest.clone(); return tween(ms, u => { arm.pos.lerpVectors(a, b, u); arm.pos.y += Math.sin(Math.PI * u) * (lift || 0); }, ease || eio); };
+  const leanTo = (P, v, ms) => { const a = P.lean || 0; return tween(ms, u => { P.lean = a + (v - a) * u; }, eio); };
+  const posture = (P, nod, tilt, ms) => { const n0 = P.nod || 0, t0 = P.tilt || 0; return tween(ms, u => { P.nod = n0 + (nod - n0) * u; P.tilt = t0 + (tilt - t0) * u; }, eio); };
+  const sideOf = (by, r) => (r.group.position.clone().sub(SEAT[by].pos).dot(SEAT[by].right)) >= 0 ? 0 : 1;      // which arm is nearer the item
+  function mouthPos(by) { const P = players[by], R0 = headR[P.char]; P.head.updateWorldMatrix(true, true); return P.head.localToWorld(V(0, -R0 * .38, -R0 * 1.0)); }
+  function earPos(by, side) { const P = players[by], R0 = headR[P.char]; P.head.updateWorldMatrix(true, true); return P.head.localToWorld(V(side * R0 * .98, -R0 * .02, R0 * .05)); }
+  // the item follows the hand: position from the grip point, orientation either the hand's (full) or kept upright / tilted by the choreography (pos)
+  function attach(r, arm, by, cfg) {
+    r.attached = arm; r.by = by; r.cfg = cfg; r.tilt = 0; r.yaw = SEAT[by].phi; r.qx = null; r.lift = 0; r.sc = r.group.scale.x; r.from = { pos: r.group.position.clone(), q: r.group.quaternion.clone() }; r.blend = 0;
+    tween(160, u => { r.blend = u; }, eio);
+  }
+  function applyAttached(r) {
+    const c = r.cfg, hd = r.attached.hand; hd.updateWorldMatrix(true, false); hd.getWorldQuaternion(_qa);
+    const q = c.mode === 'full' ? _qa.clone().multiply(c.lq) : rotQ(SEAT[r.by].right, r.tilt).multiply(rotQ(UP, r.yaw)); if (r.qx) q.multiply(r.qx);
+    const pos = hd.localToWorld(c.off.clone()).sub(c.cm.clone().multiplyScalar(r.sc).applyQuaternion(q)); pos.y += r.lift;
+    if (r.blend < 1) { pos.lerpVectors(r.from.pos, pos, r.blend); q.copy(r.from.q.clone().slerp(q, r.blend)); }
+    r.group.position.copy(pos); r.group.quaternion.copy(q);
+  }
+  async function grab(by, r, cfg) {
+    const P = players[by], S = SEAT[by], arm = P.arms[sideOf(by, r)], side = arm.side, f = S.dir.clone().addScaledVector(UP, -.1).normalize(), roll = cfg.side ? -side * Math.PI / 2 : 0, Hq = qHand(f, roll);
+    r.group.updateWorldMatrix(true, false); const cm = r.group.localToWorld(cfg.cm.clone()), wrist = cm.clone().sub(cfg.off.clone().multiplyScalar(r.group.scale.x).applyQuaternion(Hq));
+    const pre = cfg.side ? wrist.clone().addScaledVector(S.right, side * .12).add(V(0, .03, 0)) : wrist.clone().add(V(0, .14, 0)), reach = Math.hypot(cm.x - S.pos.x, cm.z - S.pos.z);
+    P.gaze = cm.clone();
+    await Promise.all([leanTo(P, clamp((reach - .92) / .3, 0, 1), 340), arcTo(arm, pre, 480, .1), orient(arm, Hq, 480), gripTo(arm, 0, 320)]);       // in over the item, hand open
+    await moveHand(arm, wrist, cfg.side ? 210 : 170, eio);
+    attach(r, arm, by, cfg); await Promise.all([gripTo(arm, cfg.grip, 170), wait(130)]);                                                              // close the fingers
+    await moveHand(arm, wrist.clone().add(V(0, .1, 0)), 260, eo);                                                                                      // lift it off the felt
+    return { by, P, S, arm, side, f, Hq, cfg, r };
+  }
+  async function homeArm(g) {            // hand back to rest, body and head back to normal
+    const { P, arm } = g; await Promise.all([relax(arm, 320), gripTo(arm, 0, 220), arcTo(arm, arm.rest, 480, .05), leanTo(P, 0, 440), posture(P, 0, 0, 420)]); P.gaze = null; arm.lockQ = null; arm.lockW = 1;
+  }
+  async function tuck(g) {               // used up: pocketed in the vest
+    const { by, arm, side, r } = g; await arcTo(arm, sw(by, side * .12, 1.1, .22), 420, .04);
+    const sc = r.group.scale.x; await tween(220, u => { r.group.scale.setScalar(sc * (1 - u)); }, eo); r.attached = null; removeItem(r.id);
+  }
+  async function clearItem(r, ms) { const sc = r.group.scale.x; await tween(ms || 200, u => { r.group.scale.setScalar(sc * (1 - u)); }, eo); r.attached = null; removeItem(r.id); }
+  // a spent shell pops out of the gun and clatters on the table
+  function ejectShell(kind) {
+    const g = new THREE.Group(); cyl(.0095, .0095, .016, 8, M('#d9a441'), 0, .008, 0, g, false); cyl(.0095, .0095, .022, 8, M(kind === 'L' ? '#ff4d6d' : '#6cc4f5'), 0, .027, 0, g, false);
+    g.position.copy(GC).add(V(0, .075, 0)); scene.add(g); const sd = Math.random() * 6.28;
+    fxs.push({ k: 'shell', m: g, v: V(Math.cos(sd) * .32, 1.7, Math.sin(sd) * .32), w: V(9 + Math.random() * 6, 3, 7), t: 0, hits: 0 });
+    const y0 = gunObj.position.y; tween(220, u => { gunObj.position.y = y0 + Math.sin(u * Math.PI) * .012; }, lin);
+  }
+  const ROUT = {
+    async loupe(g, beat) {               // the lens goes over the cylinder; the player leans in to look through it
+      const { by, P, arm, S } = g, lens = GC.clone().add(V(0, .17, 0)), Hq = qHand(S.dir.clone(), 0), c = g.cfg;
+      const wristAt = p => p.clone().sub(c.off.clone().sub(c.cm).applyQuaternion(Hq).add(V(0, .02, 0)));
+      P.gaze = lens.clone(); await Promise.all([arcTo(arm, wristAt(lens.clone().add(V(0, .06, 0))), 520, .1), orient(arm, Hq, 520), leanTo(P, .75, 520), posture(P, -.15, 0, 520)]);
+      beat(); await tween(900, u => { arm.pos.copy(wristAt(lens.clone().add(V(Math.sin(u * 6.28) * .012, .06 - .05 * Math.sin(u * Math.PI), Math.cos(u * 6.28) * .006)))); }, lin);
+      await Promise.all([arcTo(arm, wristAt(lens.clone().add(V(0, .12, 0))), 300, 0), leanTo(P, .3, 300)]); await tuck(g); await homeArm(g);
+    },
+    async phone(g, beat) {               // handset to the ear, the head tilts towards it
+      const { by, P, arm, S, side } = g, ear = earPos(by, side).addScaledVector(S.right, side * .045), f = S.dir.clone().multiplyScalar(.35).add(UP.clone().multiplyScalar(.9)).normalize();
+      const Hq = qHand(f, -side * Math.PI / 2), c = g.cfg;
+      P.gaze = null; await Promise.all([arcTo(arm, ear.clone().sub(c.off.clone().applyQuaternion(Hq)), 620, .07), orient(arm, Hq, 620), posture(P, .05, -side * .22, 560), leanTo(P, 0, 300)]);
+      beat(); await wait(1000); await Promise.all([arcTo(arm, sw(by, side * .2, 1.0, .35), 420, 0), posture(P, 0, 0, 380), relax(arm, 380)]); await tuck(g); await homeArm(g);
+    },
+    async drink(g, beat, info, o) {      // beer: a long pull, the glass is slammed down, the shell pops out. whisky: one gulp.
+      const { by, P, arm, S, r, cfg } = g, M0 = mouthPos(by), rim = V(0, o.rim, 0), tiltF = o.tilt, Hq0 = g.Hq.clone(), yaw = r.yaw, up = V(0, 1, 0);
+      const qFor = th => rotQ(S.right, th).multiply(rotQ(UP, yaw)), start = hd => hd.clone();
+      const rimAt = th => M0.clone().add(V(0, -.012, 0)).sub(rim.clone().sub(cfg.cm).applyQuaternion(qFor(th)));          // glass centre so that the rim is at the mouth
+      arm.hand.updateWorldMatrix(true, false); const hp0 = arm.hand.localToWorld(cfg.off.clone()), hpE = rimAt(tiltF); posture(P, o.nod, 0, o.ms); leanTo(P, 0, 300); P.gaze = null;
+      const lock = th => { arm.lockQ = rotQ(S.right, th).multiply(Hq0); arm.lockW = 1; };
+      await tween(o.ms, u => { const th = tiltF * u; r.tilt = th; lock(th); const hp = hp0.clone().lerp(hpE, eo(u)); hp.y += Math.sin(Math.PI * u) * .05; arm.pos.copy(hp.clone().sub(cfg.off.clone().applyQuaternion(arm.lockQ))); }, lin);
+      for (let i = 0; i < o.gulps; i++) await tween(220, u => { P.nod = o.nod + Math.sin(u * Math.PI) * .12; }, lin);
+      await Promise.all([tween(o.ms * .8, u => { const th = tiltF * (1 - u); r.tilt = th; lock(th); const hp = hpE.clone().lerp(r.base.clone().add(cfg.cm), eo(u)); hp.y += Math.sin(Math.PI * u) * .06; arm.pos.copy(hp.clone().sub(cfg.off.clone().applyQuaternion(arm.lockQ))); }, lin), posture(P, 0, 0, o.ms * .8)]);
+      Snd.play('slam'); cine.shake = Math.max(cine.shake, .35); cineTo('shake', 0, 220); await wait(130);
+      if (o.shell) ejectShell(info.kind || 'B'); beat(); if (o.after) o.after(); await wait(o.shell ? 520 : 200);
+      await Promise.all([gripTo(arm, 0, 160), wait(120)]); await clearItem(r, 180); await homeArm(g);
+    },
+    async lemon(g, beat) {               // bitten, sour face
+      const { by, P, arm, S, r } = g, M0 = mouthPos(by), pt = M0.clone().addScaledVector(S.dir, .06).add(V(0, -.015, 0)), c = g.cfg;
+      await Promise.all([arcTo(arm, pt.clone().sub(c.off.clone().applyQuaternion(qHand(S.dir, 0))), 600, .08), orient(arm, qHand(S.dir.clone().add(V(0, .2, 0)).normalize(), 0), 600), posture(P, -.12, 0, 500)]); P.gaze = null;
+      for (let i = 0; i < 2; i++) { await tween(150, u => { P.nod = -.12 - .14 * u; r.group.scale.setScalar(r.sc * (1 - .1 * (i + u))); }, eo); if (i === 0) { setExpr(by, 'hurt'); beat(); } await tween(160, u => { P.nod = -.26 + .14 * u; }, eio); }
+      await wait(260); setExpr(by, 'smug'); await clearItem(r, 200); await homeArm(g);
+    },
+    async cuffs(g, beat) {               // held up so they dangle and jingle, then slid across to the opponent
+      const { by, P, arm, S, r } = g, t = 1 - by; await Promise.all([arcTo(arm, sw(by, g.side * .1, 1.16, .42), 440, .02), leanTo(P, 0, 300)]); P.gaze = sw(by, 0, 1.3, .5);
+      Snd.play('cuff'); await tween(620, u => { r.tilt = 1.45 + Math.sin(u * 22) * .35 * (1 - u); }, lin);
+      const out = sw(by, g.side * .05, TY + .1, .36); await Promise.all([arcTo(arm, out, 380, 0), leanTo(P, .5, 380)]);
+      { const a0 = arm.pos.clone(), a1 = a0.clone().addScaledVector(S.dir, .07); await tween(110, u => { arm.pos.lerpVectors(a0, a1, u); }, lin); }                         // the flick
+      const g0 = r.group.position.clone(), q0 = r.group.quaternion.clone(); r.attached = null; r.group.position.copy(g0); await gripTo(arm, 0, 70);
+      const b = cuffSpot(t).clone(), yaw0 = 0; Snd.play('cuff'); const sl = tween(640, u => { r.group.position.lerpVectors(g0, b, u); r.group.position.y = TY + .012 + Math.sin(Math.PI * Math.min(1, u * 1.6)) * .02 * (1 - u); r.group.quaternion.copy(q0).slerp(_qa.setFromEuler(new THREE.Euler(0, (t ? Math.PI : 0) + u * 1.2, 0)), u); }, eo);
+      await Promise.all([sl, homeArm(g)]); removeItem(r.id); placeCuffs(t, true); beat();
+    },
+    async spin(g, beat) {                // set the little top down beside the gun, flick it; the cylinder spins with it
+      const { by, P, arm, S, r, side } = g, spot = GC.clone().add(V(side * .17, .0, S.dir.z * .1)); spot.y = TY + .002; P.gaze = spot.clone();
+      await Promise.all([arcTo(arm, spot.clone().add(V(0, .12, 0)).sub(g.cfg.off.clone().applyQuaternion(g.Hq)), 520, .05), leanTo(P, .4, 520)]);
+      await moveHand(arm, spot.clone().add(V(0, .02, 0)).sub(g.cfg.off.clone().applyQuaternion(g.Hq)), 200); r.attached = null; r.group.position.copy(spot); r.group.quaternion.identity(); await orient(arm, g.Hq.clone().multiply(rotQ(V(0, 0, 1), .5)), 120); await gripTo(arm, 0, 100);
+      Snd.play('spin'); beat(); const y0 = r.group.rotation.y, d = gunObj.userData.drum, a0 = d.rotation.z;
+      const sp = tween(1300, u => { r.group.rotation.y = y0 + (1 - Math.pow(1 - u, 3)) * Math.PI * 16; r.group.rotation.z = Math.sin(u * 30) * .06 * (1 - u); r.group.rotation.x = Math.cos(u * 26) * .05 * (1 - u); d.rotation.z = a0 + (1 - Math.pow(1 - u, 3)) * Math.PI * 7; }, lin);
+      await Promise.all([sp, homeArm(g)]); r.group.rotation.set(0, 0, 0); await clearItem(r, 200);
+    },
+    async coin(g, beat) {                // tossed and caught
+      const { by, P, arm, S, r, side } = g, c = g.cfg, base = sw(by, side * .08, 1.06, .34); P.gaze = null; await Promise.all([arcTo(arm, base, 420, .04), leanTo(P, 0, 300), orient(arm, qHand(S.dir.clone().add(V(0, .6, 0)).normalize(), 0), 420)]);
+      await tween(110, u => { arm.pos.y = base.y + u * .06; }, eo); const p0 = r.group.position.clone(); r.attached = null; Snd.play('coin');
+      const hand0 = arm.pos.clone(), catchAt = hand0.clone().add(V(0, -.04, 0)); await orient(arm, qHand(S.dir.clone().add(V(0, .3, 0)).normalize(), side * Math.PI), 420).then(() => 0);
+      const fly = tween(760, u => { const h = 4 * .34 * u * (1 - u); r.group.position.set(p0.x, p0.y + h - u * (p0.y - (catchAt.y + .03)), p0.z + (catchAt.z - p0.z) * u); r.group.quaternion.setFromEuler(new THREE.Euler(u * Math.PI * 10, 0, 0)); }, lin);
+      await Promise.all([fly, tween(760, u => { arm.pos.y = hand0.y - .04 * Math.sin(Math.min(1, u * 1.2) * Math.PI / 2); }, lin)]);
+      await gripTo(arm, .9, 120); beat(); await wait(260); await gripTo(arm, 0, 160); r.group.scale.setScalar(r.sc); await clearItem(r, 220); await homeArm(g);
+    },
+    async tray(g, beat) {                // stood up on the table in front of the player
+      const { by, P, arm, S, r } = g, fin = sw(by, 0, TY + .14, .72); await Promise.all([arcTo(arm, sw(by, 0, 1.0, .5), 420, .04), leanTo(P, 0, 300)]); P.gaze = null;
+      await Promise.all([tween(520, u => { r.tilt = Math.PI / 2 * u; }, eio), arcTo(arm, fin.clone().add(V(0, .02, S.dir.z * -.08)).sub(g.cfg.off.clone().applyQuaternion(g.Hq)).add(V(0, .06, 0)), 520, .03)]);
+      const q0 = r.group.quaternion.clone(); r.attached = null; r.group.position.copy(fin); Snd.play('slam'); beat(); await gripTo(arm, 0, 140); await homeArm(g); removeItem(r.id);
+    }
+  };
+  async function useItem(by, kind, id, info) {
+    info = info || {}; let fired = false; const beat = () => { if (fired) return; fired = true; if (info.beat) info.beat(); };
+    if (!ok) { beat(); return; } const r = items.get(id), P = players[by]; if (!r || !P || P.dead) { await wait(500); beat(); return; }
+    const g0 = { by, P }; let g = null;
+    try {
+      const cfg = ICFG[kind] || ICFG.coin; g = await grab(by, r, cfg);
+      if (kind === 'beer') await ROUT.drink(g, beat, info, { rim: .108, tilt: 1.25, nod: .3, ms: 760, gulps: 3, shell: true });
+      else if (kind === 'whisky') await ROUT.drink(g, beat, info, { rim: .092, tilt: 1.7, nod: .38, ms: 520, gulps: 1, shell: false });
+      else await ROUT[kind](g, beat);
+    } catch (e) { console.warn('item animation', kind, e); if (r.alive) { r.attached = null; removeItem(id); } if (g) { g.arm.lockQ = null; g.arm.pos.copy(g.arm.rest); g.P.lean = g.P.nod = g.P.tilt = 0; g.P.gaze = null; } }
+    beat();
   }
   const spinDrum = ms => { if (!ok) return Promise.resolve(); const d = gunObj.userData.drum, a = d.rotation.z; return tween(ms || 900, u => { d.rotation.z = a + u * Math.PI * 6; }, eo); };
 
@@ -537,20 +658,21 @@ const R3D = (function () {
   const setAimMode = on => { aimMode = !!on; if (gunObj && !gunObj.userData.held) gunObj.position.y = gunObj.userData.rest.pos.y + (on ? .05 : 0); };
 
   // ---------------------------------------------------------------- frame loop ----
-  function frame(now) {
-    raf = requestAnimationFrame(frame); const dt = Math.min(.05, (now - lastT) / 1000 || .016); lastT = now; const t = now / 1000; stepTweens(dt); stepFx(dt);
+  function frame(now) { raf = requestAnimationFrame(frame); advance(now); }
+  function advance(now) {
+    const dt = Math.min(.05, (now - lastT) / 1000 || .016); lastT = now; const t = now / 1000; stepTweens(dt); stepFx(dt);
     { const hr = hoverId != null ? items.get(hoverId) : null; if (hr) { glow.position.copy(hr.group.position).add(V(0, .035, 0)); glow.visible = true; } glowA += ((hr ? .3 + Math.sin(t * 3) * .05 : 0) - glowA) * Math.min(1, dt * 10); glow.material.opacity = glowA; if (glowA < .01 && !hr) glow.visible = false; }
-    items.forEach(r => { if (r.attached) { r.attached.hand.updateWorldMatrix(true, false); r.group.position.copy(r.attached.hand.localToWorld(r.loff.clone())); r.group.position.y += r.lift; } });
     players.forEach((p, s) => { if (!p) return; const idle = Math.sin(t * 1.2 + s) * .004;
       if (!p.dead && !p.busy) { p.body.position.y = .7 + idle; p.body.rotation.x = 0; } else if (p.dead && !p.busy) { p.body.position.y = .45; p.body.rotation.x = -1.25; }
-      p.torso.rotation.x = p.hit * .18; p.head.rotation.x = p.hit * .75 + Math.sin(t * .7 + s) * .02; if (!p.dead && !p.busy) p.body.position.z = p.hit * .09;
-      const lk = p.lookTo != null && SEAT[p.lookTo] ? sw(p.lookTo, 0, 1.4, 0) : (p.look && p.look.lengthSq() > 0 ? p.look : sw(1 - s, 0, 1.4, 0));
-      if (!p.dead) { const lp = p.head.getWorldPosition(V(0, 0, 0)), dir = lk.clone().sub(lp).applyAxisAngle(UP, SEAT[s].phi); p.head.rotation.y += (clamp(Math.atan2(-dir.x, -dir.z) * .5, -.7, .7) - p.head.rotation.y) * .05; }
+      const ln = p.lean || 0; p.torso.rotation.x = p.hit * .18 - ln * .3; p.head.rotation.x = p.hit * .75 + (p.nod || 0) + Math.sin(t * .7 + s) * .02; p.head.rotation.z = p.tilt || 0; if (!p.dead && !p.busy) p.body.position.z = p.hit * .09 - ln * .2;
+      const lk = p.gaze ? p.gaze : (p.lookTo != null && SEAT[p.lookTo] ? sw(p.lookTo, 0, 1.4, 0) : (p.look && p.look.lengthSq() > 0 ? p.look : sw(1 - s, 0, 1.4, 0)));
+      if (!p.dead) { const lp = p.head.getWorldPosition(V(0, 0, 0)), dir = lk.clone().sub(lp).applyAxisAngle(UP, SEAT[s].phi); p.head.rotation.y += (clamp(Math.atan2(-dir.x, -dir.z) * .5, -.7, .7) - p.head.rotation.y) * (p.gaze ? .14 : .05); const tp = p.gaze ? clamp(Math.atan2(lk.y - lp.y, Math.hypot(lk.x - lp.x, lk.z - lp.z) || 1) * .8, -.55, .3) : 0; p.gp = (p.gp || 0) + (tp - (p.gp || 0)) * .12; p.head.rotation.x += p.gp; }
     });
     if (gunObj.userData.held) placeGun();
-    players.forEach(p => { if (p) p.arms.forEach((a, i) => { if (a.pos.equals(a.rest) && !a.lockQ) a.pos.y = a.rest.y + Math.sin(t * 1.2 + i) * .002; solveArm(a); }); });
+    players.forEach(p => { if (p) p.arms.forEach((a, i) => { if (!a.sh0) a.sh0 = a.shoulder.clone(); const ln = p.lean || 0; a.shoulder.copy(a.sh0).addScaledVector(SEAT[a.s].dir, ln * .22); a.shoulder.y -= ln * .05; if (a.pos.equals(a.rest) && !a.lockQ) a.pos.y = a.rest.y + Math.sin(t * 1.2 + i) * .002; solveArm(a); }); });
+    items.forEach(r => { if (r.attached) applyAttached(r); });
     if (selRing.visible) selRing.material.opacity = .6 + Math.sin(t * 5) * .3;
-    updateCamera(dt, t); stepBoards(now); renderer.render(scene, cam);
+    updateCamera(dt, t); stepBoards(now); if (!dbgFast) renderer.render(scene, cam);
   }
   function resize() { if (!renderer) return; const w = wrap.clientWidth || innerWidth, h = wrap.clientHeight || innerHeight; renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5)); renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
 
@@ -579,6 +701,8 @@ const R3D = (function () {
   return {
     err: () => lastErr, init, setup, sync, live, start, stop, resize, setView, setSelected, setAimMode, gunAim, gunSuspense, gunFire, gunPut, useItem, spinDrum, die, revive, say, slam, point, setExpr,
     onPick: f => { cb.pick = f; }, onHover: f => { cb.hover = f; }, isOk: () => ok,
+    dbgCam: (p, l, f) => { dbgCamV = p ? { pos: V(...p), look: V(...l), fov: f || 50 } : null; },
+    dbgTw: () => tws.map(w => [Math.round(w.t), Math.round(w.ms)]), dbgAdvance: async (n, ms, fast) => { for (let i = 0; i < n; i++) { dbgFast = !!fast && i < n - 1; advance(lastT + (ms || 33.3)); await Promise.resolve(); await Promise.resolve(); } dbgFast = false; }, dbgAddItem: (k, slot) => { const id = 900 + items.size + Math.floor(Math.random() * 90); addItem({ id, k }, slot, false); return id; },
     boardDbg: () => boards.map(b => ({ s: b.s, op: +b.mat.opacity.toFixed(3), vis: b.grp.visible })),
     itemIds: () => [...items.keys()], dbg: () => ({ gun: gunObj.position.toArray(), held: !!gunObj.userData.held, players: players.map(p => p && { dead: p.dead, char: p.char }) })
   };

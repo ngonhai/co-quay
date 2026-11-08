@@ -315,14 +315,20 @@
     patchMid(e, g);
     const me = U.me, name = t('items')[e.k][0], who = esc(g.names[e.by]);
     const snd = { loupe: 'peek', phone: 'peek', beer: 'glass', lemon: 'heal', cuffs: 'cuff', spin: 'spin', coin: 'coin', whisky: 'glass', tray: 'shield' }[e.k];
-    Snd.play(snd); const p3 = U.d3 ? R3D.useItem(e.by, e.k, e.id) : null; if (e.k === 'lemon') Fx.heal(panelOf(e.by).querySelector('.p-hp')); if (e.k === 'tray') Fx.spark(panelOf(e.by).querySelector('.p-av'), '#6cc4f5'); popIcon(e.k, t('usedBy', { n: who, i: esc(name) })); let wait = 1000;
-    if (e.k === 'loupe' && e.by === me) { setTimeout(() => say(t('peekYou', { k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1700; }
-    else if (e.k === 'phone' && e.by === me) { setTimeout(() => say(t('peekPhone', { i: e.pos + 1, k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'), 450); wait = 1900; }
-    else if ((e.k === 'loupe' || e.k === 'phone')) { setTimeout(() => say(t('peekThem', { n: who }), 'sys'), 450); wait = 1300; }
-    else if (e.k === 'beer') { setTimeout(() => say(t('ejected', { k: kindTxt(e.kind) }), e.kind === 'L' ? 'live' : 'blank'), 450); wait = 1600; }
-    else if (e.k === 'coin') { setTimeout(() => say(e.by === me && e.peek ? t('flipYou', { k: kindTxt(e.peek) }) : t('flipped'), 'sys'), 450); wait = 1500; }
-    else if (e.k === 'spin') { U.extra += reduce() ? 0 : 720; renderDrum(g); wait = 1400; if (U.d3) setTimeout(() => { R3D.sync(g, { keepSel: true }); R3D.spinDrum(1000); }, 1500); }
-    await Promise.all([sleep(wait), p3]);
+    // the text / HUD effect of an item shows at the moment the 3D hand does the deed (info.beat); without 3D it just follows the icon
+    let wait = 1000, fx = () => {};
+    if (e.k === 'lemon') fx = () => Fx.heal(panelOf(e.by).querySelector('.p-hp'));
+    else if (e.k === 'tray') fx = () => Fx.spark(panelOf(e.by).querySelector('.p-av'), '#6cc4f5');
+    else if (e.k === 'loupe' && e.by === me) { fx = () => say(t('peekYou', { k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'); wait = 1700; }
+    else if (e.k === 'phone' && e.by === me) { fx = () => say(t('peekPhone', { i: e.pos + 1, k: kindTxt(e.peek) }), e.peek === 'L' ? 'live' : 'blank'); wait = 1900; }
+    else if (e.k === 'loupe' || e.k === 'phone') { fx = () => say(t('peekThem', { n: who }), 'sys'); wait = 1300; }
+    else if (e.k === 'beer') { fx = () => say(t('ejected', { k: kindTxt(e.kind) }), e.kind === 'L' ? 'live' : 'blank'); wait = 1600; }
+    else if (e.k === 'coin') { fx = () => say(e.by === me && e.peek ? t('flipYou', { k: kindTxt(e.peek) }) : t('flipped'), 'sys'); wait = 1500; }
+    else if (e.k === 'spin') { U.extra += reduce() ? 0 : 720; renderDrum(g); wait = 1400; }
+    let done = false; const beat = () => { if (done) return; done = true; fx(); };
+    Snd.play(snd); popIcon(e.k, t('usedBy', { n: who, i: esc(name) }));
+    const p3 = U.d3 ? R3D.useItem(e.by, e.k, e.id, Object.assign({}, e, { beat })) : null; if (!U.d3) setTimeout(beat, 450);
+    await Promise.all([sleep(wait), p3]); beat();
   }
 
   // ---------------------------------------------------------------- expressions + emotes ----
